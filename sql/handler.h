@@ -2922,6 +2922,8 @@ public:
    Pops the top if condition stack, if stack is not empty.
  */
  virtual void cond_pop() { return; }
+ /* GPU Accelerator */
+ virtual int ha_bulk_load_from_gpu(int record_seq, uchar* record) { return 0; };
 
  /**
    Push down an index condition to the handler.

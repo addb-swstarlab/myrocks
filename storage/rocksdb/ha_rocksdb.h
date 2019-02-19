@@ -629,6 +629,11 @@ class ha_rocksdb : public my_core::handler {
   */
   int m_dupp_errkey;
 
+  /* GPU Accelerator */
+  std::vector <rocksdb::Slice> gkeys;
+  std::vector <rocksdb::Slice> gvalues;
+
+  int ha_bulk_load_from_gpu(int record_seq, uchar * buf) override;
   int create_key_defs(const TABLE *const table_arg,
                       Rdb_tbl_def *const tbl_def_arg,
                       const TABLE *const old_table_arg = nullptr,
@@ -902,6 +907,11 @@ public:
                                          const rocksdb::Slice *const value,
                                          uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  /* GPU Accelerator */
+  int convert_record_from_storage_format_gpu(const rocksdb::Slice *const key,
+                                         const rocksdb::Slice *const value,
+										 uchar *const buf)
+      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int convert_record_from_storage_format(const rocksdb::Slice *const key,
                                          uchar *const buf)
@@ -1051,7 +1061,10 @@ public:
   int index_last(uchar *const buf) override
       MY_ATTRIBUTE((__warn_unused_result__));
 
+  /* GPU Accelerator */
+  const class Item *cond_push(const class Item *cond) override;
   class Item *idx_cond_push(uint keyno, class Item *const idx_cond) override;
+  const char * make_cond_str(Item *const item);
   /*
     Default implementation from cancel_pushed_idx_cond() suits us
   */

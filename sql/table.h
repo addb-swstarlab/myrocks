@@ -1339,6 +1339,9 @@ public:
   // last time table was accessed via get_table() function
   time_point last_accessed;
 
+  // GPU accelerator
+  // GPU_BUFFER * gpu_buffer;
+
   void init(THD *thd, TABLE_LIST *tl);
   bool fill_item_list(List<Item> *item_list) const;
   void reset_item_list(List<Item> *item_list) const;

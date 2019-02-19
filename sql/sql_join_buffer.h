@@ -88,7 +88,6 @@ typedef struct st_cache_field {
 
 class JOIN_CACHE :public QEP_operation
 {
-
 private:
 
   /* Size of the offset of a record from the cache */   
@@ -514,6 +513,7 @@ public:
   /** Bits describing cache's type @sa setup_join_buffering() */
   enum {ALG_NONE= 0, ALG_BNL= 1, ALG_BKA= 2, ALG_BKA_UNIQUE= 4};
 
+  friend class GPU_BUFFER;
   friend class JOIN_CACHE_BNL;
   friend class JOIN_CACHE_BKA;
   friend class JOIN_CACHE_BKA_UNIQUE;
@@ -534,6 +534,29 @@ public:
 
   /* Initialize the BNL cache */       
   int init();
+
+};
+
+/* GPU Accelerator */
+class GPU_BUFFER :public JOIN_CACHE
+{
+
+protected:
+
+  /* Using BNL find matches from the next table for records from join buffer */
+  enum_nested_loop_state join_matching_records(bool skip_last);
+
+public:
+  GPU_BUFFER(JOIN *j, JOIN_TAB *tab, JOIN_CACHE *prev)
+    : JOIN_CACHE(j, tab, prev)
+  {}
+
+  /* Initialize the GPU BUFFER */
+  int init();
+  enum_nested_loop_state put_record();
+  bool get_record();
+//  bool put_record_in_cache();
+//  uint write_record_data(uchar * link, bool *is_full);
 
 };
 

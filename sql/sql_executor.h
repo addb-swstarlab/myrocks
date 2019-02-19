@@ -204,6 +204,9 @@ public:
     Finalize records sending.
   */
   virtual enum_nested_loop_state end_send()= 0;
+  /* GPU Accelerator */
+  virtual bool get_record() {return false;};
+  virtual void reset_cahce(bool write) {};
   /**
     Internal state cleanup.
   */
@@ -240,6 +243,7 @@ public:
   {};
   enum_op_type type() { return OT_TMP_TABLE; }
   enum_nested_loop_state put_record() { return put_record(false); };
+
   /*
     Send the result of operation further (to a next operation/client)
     This function is called after all records were put into the buffer
@@ -271,6 +275,8 @@ enum_nested_loop_state end_send_group(JOIN *join, JOIN_TAB *join_tab,
 enum_nested_loop_state end_write_group(JOIN *join, JOIN_TAB *join_tab,
                                        bool end_of_records);
 enum_nested_loop_state sub_select(JOIN *join,JOIN_TAB *join_tab, bool
+                                  end_of_records);
+enum_nested_loop_state sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool
                                   end_of_records);
 enum_nested_loop_state
 evaluate_join_record(JOIN *join, JOIN_TAB *join_tab, int error);

@@ -2530,6 +2530,9 @@ public:
   virtual rocksdb::Status get(rocksdb::ColumnFamilyHandle *const column_family,
                               const rocksdb::Slice &key,
                               rocksdb::PinnableSlice *const value) const = 0;
+  virtual rocksdb::Status get_with_gpu(rocksdb::ColumnFamilyHandle *const column_family,
+                              const rocksdb::Slice &key,
+                              rocksdb::PinnableSlice *const value) const = 0;
   virtual rocksdb::Status
   get_for_update(rocksdb::ColumnFamilyHandle *const column_family,
                  const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
@@ -2899,6 +2902,17 @@ public:
     value->Reset();
     global_stats.queries[QUERIES_POINT].inc();
     return m_rocksdb_tx->Get(m_read_opts, column_family, key, value);
+  }
+
+  rocksdb::Status get_with_gpu(rocksdb::ColumnFamilyHandle *const column_family,
+                      const rocksdb::Slice &key,
+                      rocksdb::PinnableSlice *const value) const override {
+    // clean PinnableSlice right begfore Get() for multiple gets per statement
+    // the resources after the last Get in a statement are cleared in
+    // handler::reset call
+    value->Reset();
+    global_stats.queries[QUERIES_POINT].inc();
+    return m_rocksdb_tx->Get_with_GPU(m_read_opts, column_family, key, value);
   }
 
   rocksdb::Status
@@ -6070,6 +6084,119 @@ int ha_rocksdb::convert_field_from_storage_format(
 
   return HA_EXIT_SUCCESS;
 }
+
+/* GPU Accelerator */
+int ha_rocksdb::convert_record_from_storage_format_gpu(
+    const rocksdb::Slice *const key, const rocksdb::Slice *const value, uchar * buf) {
+  Rdb_string_reader reader(value);
+
+  /*
+    Decode PK fields from the key
+  */
+  DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_read1",
+                  dbug_modify_key_varchar8(m_last_rowkey););
+
+  const rocksdb::Slice rowkey_slice(m_last_rowkey.ptr(),
+                                    m_last_rowkey.length());
+  const char *unpack_info = nullptr;
+  uint16 unpack_info_len = 0;
+  rocksdb::Slice unpack_slice;
+
+  /* Other fields are decoded from the value */
+  const char *null_bytes = nullptr;
+  if (m_null_bytes_in_rec && !(null_bytes = reader.read(m_null_bytes_in_rec))) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+
+  if (m_maybe_unpack_info) {
+    unpack_info = reader.get_current_ptr();
+    if (!unpack_info || !Rdb_key_def::is_unpack_data_tag(unpack_info[0]) ||
+        !reader.read(Rdb_key_def::get_unpack_header_size(unpack_info[0]))) {
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
+
+    unpack_info_len =
+        rdb_netbuf_to_uint16(reinterpret_cast<const uchar *>(unpack_info + 1));
+    unpack_slice = rocksdb::Slice(unpack_info, unpack_info_len);
+
+    reader.read(unpack_info_len -
+                Rdb_key_def::get_unpack_header_size(unpack_info[0]));
+  }
+
+  int err = HA_EXIT_SUCCESS;
+  if (m_key_requested) {
+    err = m_pk_descr->unpack_record(table, buf, &rowkey_slice,
+                                    unpack_info ? &unpack_slice : nullptr,
+                                    false /* verify_checksum */);
+  }
+
+  if (err != HA_EXIT_SUCCESS) {
+    return err;
+  }
+
+  for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end(); it++) {
+    const Rdb_field_encoder *const field_dec = it->m_field_enc;
+    const bool decode = it->m_decode;
+    const bool isNull =
+        field_dec->maybe_null() &&
+        ((null_bytes[field_dec->m_null_offset] & field_dec->m_null_mask) != 0);
+
+    Field *const field = table->field[field_dec->m_field_index];
+
+    /* Skip the bytes we need to skip */
+    if (it->m_skip && !reader.read(it->m_skip)) {
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
+
+    uint field_offset = field->ptr - table->record[0];
+    uint null_offset = field->null_offset();
+    bool maybe_null = field->real_maybe_null();
+    field->move_field(buf + field_offset,
+                      maybe_null ? buf + null_offset : nullptr,
+                      field->null_bit);
+    // WARNING! - Don't return before restoring field->ptr and field->null_ptr!
+
+    if (isNull) {
+      if (decode) {
+        /* This sets the NULL-bit of this record */
+        field->set_null();
+        /*
+          Besides that, set the field value to default value. CHECKSUM TABLE
+          depends on this.
+        */
+        memcpy(field->ptr, table->s->default_values + field_offset,
+               field->pack_length());
+      }
+    } else {
+      if (decode) {
+        field->set_notnull();
+      }
+
+      if (field_dec->m_field_type == MYSQL_TYPE_BLOB) {
+        err = convert_blob_from_storage_format(
+            (my_core::Field_blob *) field, &reader, decode);
+      } else if (field_dec->m_field_type == MYSQL_TYPE_VARCHAR) {
+        err = convert_varchar_from_storage_format(
+            (my_core::Field_varstring *) field, &reader, decode);
+      } else {
+        err = convert_field_from_storage_format(
+            field, &reader, decode, field_dec->m_pack_length_in_rec);
+      }
+    }
+
+    // Restore field->ptr and field->null_ptr
+    field->move_field(table->record[0] + field_offset,
+                      maybe_null ? table->record[0] + null_offset : nullptr,
+                      field->null_bit);
+
+    if (err != HA_EXIT_SUCCESS) {
+      return err;
+    }
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
 
 /*
   @brief
@@ -11577,6 +11704,97 @@ const char *dbug_print_item(Item *const item) {
 }
 
 #endif /*DBUG_OFF*/
+
+/* GPU Accelerator */
+
+
+const char * ha_rocksdb::make_cond_str(Item *const item) {
+  static char cond_buf[512];
+  char *const buf = cond_buf;
+  String str(buf, sizeof(cond_buf), &my_charset_bin);
+  str.length(0);
+  if (!item)
+    return "(Item*)nullptr";
+  item->print(&str, QT_ORDINARY);
+  if (str.c_ptr() == buf)
+    return buf;
+  else
+    return "Couldn't fit into buffer";
+}
+
+
+const class Item *ha_rocksdb::cond_push(const class Item * cond) {
+  DBUG_ENTER_FUNC();
+  pushed_cond = cond;
+  DBUG_RETURN(nullptr);
+}
+
+int ha_rocksdb::ha_bulk_load_from_gpu(int record_seq, uchar* buf) {
+  DBUG_ENTER_FUNC();
+  int rc = 0;
+  stats.rows_requested++;
+  int record_num=0;
+  std::string cond_str(make_cond_str(push_cond));
+  std::cout << "Condition Str = " << cond_str << std::endl;
+
+  if(record_seq == 0) {
+    gkeys.clear();
+    gvalues.clear();
+
+    Rdb_transaction *const tx = get_or_create_tx(table->in_use);
+    DBUG_ASSERT(tx != nullptr);
+
+    uint key_size;
+    int key_start_matching_bytes = m_pk_descr->get_first_key(m_pk_packed_tuple, &key_size);
+    rocksdb::Slice table_key((const char *)m_pk_packed_tuple, key_size);
+
+    tx->acquire_snapshot(true);
+    s = tx->get_with_gpu(m_pk_descr->get_cf(), table_key, &m_retrieved_record);
+
+
+    /* Iteration Code for implementation */
+//  for (;;) {
+//    if (!is_valid(m_scan_it)) {
+//      rc = HA_ERR_END_OF_FILE;
+//      break;
+//    }
+//
+//	/* check if we're out of this table */
+//    const rocksdb::Slice key = m_scan_it->key();
+//    if (!m_pk_descr->covers_key(key)) {
+//      rc = HA_ERR_END_OF_FILE;
+//      break;
+//    }
+//    gkeys.push_back(key);
+//
+//    // Use the value from the iterator
+//    rocksdb::Slice value = m_scan_it->value();
+//	m_last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
+//    gvalues.push_back(value);
+//	std::cout << "Record contents : " << value.ToString(0) << std::endl;
+//	std::cout << "Before Record : " << table->record[0] << std::endl;
+//
+//	if (!rc) {
+//	  stats.rows_read++;
+//	  stats.rows_index_next++;
+//	  update_row_stats(ROWS_READ);
+//	}
+//	table->status = 0;
+//	record_num++;
+//	m_scan_it->Next();
+//  }
+//    rc=record_num;
+//	std::cout << "Record num: " << record_num << std::endl;
+
+
+  } else {
+	  std::cout << "before convert_record_format_gpu " << record_seq << std::endl;
+	  rc = convert_record_from_storage_format_gpu(&gkeys[record_seq - 1], &gvalues[record_seq - 1], buf);
+	  std::cout << "after convert_record_format_gpu " << record_seq << std::endl;
+  }
+
+  DBUG_RETURN(rc);
+}
 
 /**
   SQL layer calls this function to push an index condition.

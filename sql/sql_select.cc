@@ -948,6 +948,9 @@ bool JOIN::destroy()
       }
       tab->op->free();
       tab->op= NULL;
+      /* GPU Accelerator */
+      tab->gpu_buffer->free();
+      tab->gpu_buffer = NULL;
     }
 
     tab->table= NULL;
@@ -2425,6 +2428,13 @@ static bool setup_join_buffering(JOIN_TAB *tab, JOIN *join,
   const bool bka_on= join->thd->optimizer_switch_flag(OPTIMIZER_SWITCH_BKA);
   const uint tableno= tab - join->join_tab;
   const uint tab_sj_strategy= tab->get_sj_strategy();
+
+  /* GPU Accelerator */
+  std::cout << "gpu initialize " << std::endl;
+
+  tab->gpu_buffer = new GPU_BUFFER(join, tab, NULL);
+  tab->gpu_buffer->init();
+
   bool use_bka_unique= false;
   DBUG_EXECUTE_IF("test_bka_unique", use_bka_unique= true;);
   *icp_other_tables_ok= TRUE;
@@ -2845,6 +2855,7 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
                                                          loosescan_key_len)))
         DBUG_RETURN(TRUE); /* purecov: inspected */
     }
+    std::cout << "table type = " << tab->type << std::endl;
     switch (tab->type) {
     case JT_EQ_REF:
     case JT_REF_OR_NULL:
@@ -2874,8 +2885,11 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
       if (setup_join_buffering(tab, join, options, no_jbuf_after,
                                &icp_other_tables_ok))
         DBUG_RETURN(true);
-      if (tab->use_join_cache != JOIN_CACHE::ALG_NONE)
+      if (gpu_accelerated) {
+    	tab[-1].next_select=sub_select_gpu;
+      } else if (tab->use_join_cache != JOIN_CACHE::ALG_NONE) {
         tab[-1].next_select=sub_select_op;
+      }
 
       /* These init changes read_record */
       if (tab->use_quick == QS_DYNAMIC_RANGE)

@@ -26,6 +26,7 @@
 #include "sql_priv.h"
 #include "sql_select.h"
 #include "key.h"
+#include "sql_test.h"
 #include "sql_optimizer.h"  // JOIN
 #include "sql_join_buffer.h"
 #include "sql_tmp_table.h"  // instantiate_tmp_table()
@@ -471,6 +472,7 @@ bool JOIN_CACHE::alloc_buffer()
                    return true;
                   );
 
+  std::cout << "buff_size is " << buff_size << std::endl;
   buff= (uchar*) my_malloc(buff_size, MYF(0));
   return buff == NULL;
 }
@@ -1838,12 +1840,17 @@ enum_nested_loop_state JOIN_CACHE_BNL::join_matching_records(bool skip_last)
   READ_RECORD *info;
   enum_nested_loop_state rc= NESTED_LOOP_OK;
   SQL_SELECT *select= join_tab->cache_select;
+  DBUG_ENTER("join match record");
+  DBUG_PRINT("enter",
+             ("table: %s",
+              join_tab->table->alias));
 
   join_tab->table->null_row= 0;
 
   /* Return at once if there are no records in the join buffer */
   if (!records)     
-    return NESTED_LOOP_OK;   
+    //return NESTED_LOOP_OK;
+	DBUG_RETURN(NESTED_LOOP_OK);
  
   /* 
     When joining we read records from the join buffer back into record buffers.
@@ -1860,7 +1867,8 @@ enum_nested_loop_state JOIN_CACHE_BNL::join_matching_records(bool skip_last)
 
   /* Start retrieving all records of the joined table */
   if ((error= (*join_tab->read_first_record)(join_tab))) 
-    return error < 0 ? NESTED_LOOP_OK : NESTED_LOOP_ERROR;
+    //return error < 0 ? NESTED_LOOP_OK : NESTED_LOOP_ERROR;
+	  DBUG_RETURN(error < 0 ? NESTED_LOOP_OK : NESTED_LOOP_ERROR);
 
   info= &join_tab->read_record;
   do
@@ -1872,7 +1880,8 @@ enum_nested_loop_state JOIN_CACHE_BNL::join_matching_records(bool skip_last)
     {
       /* The user has aborted the execution of the query */
       join->thd->send_kill_message();
-      return NESTED_LOOP_KILLED;
+      //return NESTED_LOOP_KILLED;
+    	DBUG_RETURN(NESTED_LOOP_KILLED);
     }
     
     /* 
@@ -1904,7 +1913,8 @@ enum_nested_loop_state JOIN_CACHE_BNL::join_matching_records(bool skip_last)
             get_record();
             rc= generate_full_extensions(get_curr_rec());
             if (rc != NESTED_LOOP_OK)
-              return rc;
+              //return rc;
+            	DBUG_RETURN(rc);
           }
         }
       }
@@ -1913,7 +1923,8 @@ enum_nested_loop_state JOIN_CACHE_BNL::join_matching_records(bool skip_last)
 
   if (error > 0)				// Fatal error
     rc= NESTED_LOOP_ERROR; 
-  return rc;
+  //return rc;
+  DBUG_RETURN(rc);
 }
 
      
@@ -3408,6 +3419,163 @@ bool JOIN_CACHE_BKA_UNIQUE::check_match(uchar *rec_ptr)
 }
 
 
+/* GPU Accelerator */
+
+int GPU_BUFFER::init()
+{
+  DBUG_ENTER("GPU_BUFFER::init");
+
+  std::cout << "GPU BUFFER init "<< std::endl;
+  calc_record_fields();
+
+  if (alloc_fields(0))
+    DBUG_RETURN(1);
+
+  create_flag_fields();
+
+  create_remaining_fields(TRUE);
+
+  set_constants();
+
+  if (alloc_buffer())
+    DBUG_RETURN(1);
+
+  reset_cache(true);
+
+  DBUG_RETURN(0);
+}
+
+enum_nested_loop_state GPU_BUFFER::put_record() {
+	if(put_record_in_cache()) {
+		  buff_size = buff_size * 2;
+		  buff = (uchar *)realloc(buff, buff_size);
+	}
+	return NESTED_LOOP_OK;
+}
+
+bool GPU_BUFFER::get_record()
+{
+  bool res;
+  uchar *prev_rec_ptr= 0;
+  std::cout << "GPU_BUFFER record num = " << records << std::endl;
+
+  if (with_length)
+    pos+= size_of_rec_len;
+  if (prev_cache)
+  {
+    pos+= prev_cache->get_size_of_rec_offset();
+    prev_rec_ptr= prev_cache->get_rec_ref(pos);
+  }
+  curr_rec_pos= pos;
+  res= (read_some_record_fields() == -1);
+  if (!res)
+  { // There are more records to read
+    pos+= referenced_fields*size_of_fld_ofs;
+    if (prev_cache)
+    {
+      /*
+        read_some_record_fields() didn't read fields stored in previous
+        buffers, read them now:
+      */
+      prev_cache->get_record_by_pos(prev_rec_ptr);
+    }
+  }
+  return res;
+}
+
+enum_nested_loop_state GPU_BUFFER::join_matching_records(bool skip_last)
+{
+  uint cnt;
+  int error;
+  READ_RECORD *info;
+  enum_nested_loop_state rc= NESTED_LOOP_OK;
+  SQL_SELECT *select= join_tab->cache_select;
+  DBUG_ENTER("join match record");
+  DBUG_PRINT("enter",
+             ("table: %s",
+              join_tab->table->alias));
+
+  join_tab->table->null_row= 0;
+
+  /* Return at once if there are no records in the join buffer */
+  if (!records)
+    //return NESTED_LOOP_OK;
+	DBUG_RETURN(NESTED_LOOP_OK);
+
+  /*
+    When joining we read records from the join buffer back into record buffers.
+    If matches for the last partial join record are found through a call to
+    the sub_select function then this partial join record must be saved in the
+    join buffer in order to be restored just before the sub_select call.
+  */
+  if (skip_last)
+    put_record_in_cache();
+
+  if (join_tab->use_quick == QS_DYNAMIC_RANGE && join_tab->select->quick)
+    /* A dynamic range access was used last. Clean up after it */
+    join_tab->select->set_quick(NULL);
+
+  /* Start retrieving all records of the joined table */
+  if ((error= (*join_tab->read_first_record)(join_tab)))
+    //return error < 0 ? NESTED_LOOP_OK : NESTED_LOOP_ERROR;
+	  DBUG_RETURN(error < 0 ? NESTED_LOOP_OK : NESTED_LOOP_ERROR);
+
+  info= &join_tab->read_record;
+  do
+  {
+    if (join_tab->keep_current_rowid)
+      join_tab->table->file->position(join_tab->table->record[0]);
+
+    if (join->thd->killed)
+    {
+      /* The user has aborted the execution of the query */
+      join->thd->send_kill_message();
+      //return NESTED_LOOP_KILLED;
+    	DBUG_RETURN(NESTED_LOOP_KILLED);
+    }
+
+    /*
+      Do not look for matches if the last read record of the joined table
+      does not meet the conditions that have been pushed to this table
+    */
+    if (rc == NESTED_LOOP_OK)
+    {
+      bool skip_record;
+      bool consider_record= (!select ||
+                             (!select->skip_record(join->thd, &skip_record) &&
+                              !skip_record));
+      if (select && join->thd->is_error())
+        return NESTED_LOOP_ERROR;
+      if (consider_record)
+      {
+        /* Prepare to read records from the join buffer */
+        reset_cache(false);
+
+        /* Read each record from the join buffer and look for matches */
+        for (cnt= records - MY_TEST(skip_last) ; cnt; cnt--)
+        {
+          /*
+            If only the first match is needed and it has been already found for
+            the next record read from the join buffer then the record is skipped.
+          */
+          if (!check_only_first_match || !skip_record_if_match())
+          {
+            get_record();
+            rc= generate_full_extensions(get_curr_rec());
+            if (rc != NESTED_LOOP_OK)
+              //return rc;
+            	DBUG_RETURN(rc);
+          }
+        }
+      }
+    }
+  } while (!(error= info->read_record(info)));
+
+  if (error > 0)				// Fatal error
+    rc= NESTED_LOOP_ERROR;
+  //return rc;
+  DBUG_RETURN(rc);
+}
 /****************************************************************************
  * Join cache module end
  ****************************************************************************/

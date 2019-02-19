@@ -666,6 +666,11 @@ public:
   uint          use_join_cache;
   QEP_operation *op;
   /*
+   * GPU Accelerator
+   */
+  QEP_operation *gpu_buffer;
+  uint buf_record;
+  /*
     Index condition for BKA access join
   */
   Item          *cache_idx_cond;
@@ -947,6 +952,8 @@ st_join_table::st_join_table()
     ref(),
     use_join_cache(0),
     op(NULL),
+	gpu_buffer(NULL),
+	buf_record(0),
 
     cache_idx_cond(NULL),
     cache_select(NULL),

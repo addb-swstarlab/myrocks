@@ -464,7 +464,11 @@ public:
     no_const_tables= FALSE;
     /* can help debugging (makes smaller test cases): */
     DBUG_EXECUTE_IF("no_const_tables",no_const_tables= TRUE;);
-    first_select= sub_select;
+    if(gpu_accelerated) {
+      first_select = sub_select_gpu;
+    } else {
+      first_select= sub_select;
+    }
     set_group_rpa= false;
     group_sent= 0;
   }

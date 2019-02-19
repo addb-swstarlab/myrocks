@@ -6127,3 +6127,9 @@ static Sys_var_ulong Sys_session_set_dscp_on_socket(
        SESSION_ONLY(dscp_on_socket),
        NO_CMD_LINE, VALID_RANGE(0, 63), DEFAULT(0), BLOCK_SIZE(1),
        NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
+static Sys_var_mybool Sys_gpu_accelerated(
+       "gpu_option",
+       "test for gpu accerated",
+       GLOBAL_VAR(gpu_accelerated), CMD_LINE(OPT_ARG),
+       DEFAULT(FALSE));
