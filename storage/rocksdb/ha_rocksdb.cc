@@ -2532,7 +2532,7 @@ public:
                               rocksdb::PinnableSlice *const value) const = 0;
   virtual rocksdb::Status get_with_gpu(rocksdb::ColumnFamilyHandle *const column_family,
                               const rocksdb::Slice &key,
-                              rocksdb::PinnableSlice *const value) const = 0;
+                              rocksdb::PinnableSlice *const value) const { rocksdb::Status s; return s;};
   virtual rocksdb::Status
   get_for_update(rocksdb::ColumnFamilyHandle *const column_family,
                  const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
@@ -11708,16 +11708,15 @@ const char *dbug_print_item(Item *const item) {
 /* GPU Accelerator */
 
 
-const char * ha_rocksdb::make_cond_str(Item *const item) {
+const char * ha_rocksdb::make_cond_str(Item * item) {
   static char cond_buf[512];
-  char *const buf = cond_buf;
-  String str(buf, sizeof(cond_buf), &my_charset_bin);
+  String str(cond_buf, sizeof(cond_buf), &my_charset_bin);
   str.length(0);
   if (!item)
     return "(Item*)nullptr";
   item->print(&str, QT_ORDINARY);
-  if (str.c_ptr() == buf)
-    return buf;
+  if (str.c_ptr() == cond_buf)
+    return cond_buf;
   else
     return "Couldn't fit into buffer";
 }
@@ -11734,58 +11733,58 @@ int ha_rocksdb::ha_bulk_load_from_gpu(int record_seq, uchar* buf) {
   int rc = 0;
   stats.rows_requested++;
   int record_num=0;
-  std::string cond_str(make_cond_str(push_cond));
+  Item * item = const_cast<Item *>(pushed_cond);
+  std::string cond_str(make_cond_str(item));
   std::cout << "Condition Str = " << cond_str << std::endl;
 
   if(record_seq == 0) {
     gkeys.clear();
     gvalues.clear();
 
-    Rdb_transaction *const tx = get_or_create_tx(table->in_use);
-    DBUG_ASSERT(tx != nullptr);
-
-    uint key_size;
-    int key_start_matching_bytes = m_pk_descr->get_first_key(m_pk_packed_tuple, &key_size);
-    rocksdb::Slice table_key((const char *)m_pk_packed_tuple, key_size);
-
-    tx->acquire_snapshot(true);
-    s = tx->get_with_gpu(m_pk_descr->get_cf(), table_key, &m_retrieved_record);
+//    Rdb_transaction *const tx = get_or_create_tx(table->in_use);
+//    DBUG_ASSERT(tx != nullptr);
+//
+//    //uint key_size;
+//    //int key_start_matching_bytes = m_pk_descr->get_first_key(m_pk_packed_tuple, &key_size);
+//    rocksdb::Slice table_key((const char *)m_pk_packed_tuple, 4);
+//
+//    tx->acquire_snapshot(true);
+//    rocksdb::Status s = tx->get_with_gpu(m_pk_descr->get_cf(), table_key, &m_retrieved_record);
 
 
     /* Iteration Code for implementation */
-//  for (;;) {
-//    if (!is_valid(m_scan_it)) {
-//      rc = HA_ERR_END_OF_FILE;
-//      break;
-//    }
-//
-//	/* check if we're out of this table */
-//    const rocksdb::Slice key = m_scan_it->key();
-//    if (!m_pk_descr->covers_key(key)) {
-//      rc = HA_ERR_END_OF_FILE;
-//      break;
-//    }
-//    gkeys.push_back(key);
-//
-//    // Use the value from the iterator
-//    rocksdb::Slice value = m_scan_it->value();
-//	m_last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-//    gvalues.push_back(value);
-//	std::cout << "Record contents : " << value.ToString(0) << std::endl;
-//	std::cout << "Before Record : " << table->record[0] << std::endl;
-//
-//	if (!rc) {
-//	  stats.rows_read++;
-//	  stats.rows_index_next++;
-//	  update_row_stats(ROWS_READ);
-//	}
-//	table->status = 0;
-//	record_num++;
-//	m_scan_it->Next();
-//  }
-//    rc=record_num;
-//	std::cout << "Record num: " << record_num << std::endl;
+  for (;;) {
+    if (!is_valid(m_scan_it)) {
+      rc = HA_ERR_END_OF_FILE;
+      break;
+    }
 
+	/* check if we're out of this table */
+    const rocksdb::Slice key = m_scan_it->key();
+    if (!m_pk_descr->covers_key(key)) {
+      rc = HA_ERR_END_OF_FILE;
+      break;
+    }
+    gkeys.push_back(key);
+
+    // Use the value from the iterator
+    rocksdb::Slice value = m_scan_it->value();
+	m_last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
+    gvalues.push_back(value);
+	std::cout << "Record contents : " << value.ToString(0) << std::endl;
+	std::cout << "Before Record : " << table->record[0] << std::endl;
+
+	if (!rc) {
+	  stats.rows_read++;
+	  stats.rows_index_next++;
+	  update_row_stats(ROWS_READ);
+	}
+	table->status = 0;
+	record_num++;
+	m_scan_it->Next();
+  }
+    rc=record_num;
+	std::cout << "Record num: " << record_num << std::endl;
 
   } else {
 	  std::cout << "before convert_record_format_gpu " << record_seq << std::endl;

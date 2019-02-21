@@ -123,6 +123,7 @@ JOIN::optimize()
   DBUG_ENTER("JOIN::optimize");
   DBUG_ASSERT(!tables || thd->lex->is_query_tables_locked());
 
+  std::cout << "optimize1" << std::endl;
   // to prevent double initialization on EXPLAIN
   if (optimized)
     DBUG_RETURN(0);
@@ -168,6 +169,7 @@ JOIN::optimize()
     m_select_limit= HA_POS_ERROR;
   do_send_rows = (unit->select_limit_cnt > 0) ? 1 : 0;
 
+  std::cout << "optimize2" << std::endl;
 #ifdef HAVE_REF_TO_FIELDS			// Not done yet
   /* Add HAVING to WHERE if possible */
   if (having && !group_list && !sum_func_count)
@@ -192,6 +194,7 @@ JOIN::optimize()
 #endif
   if (first_optimization)
   {
+	  std::cout << "optimize3" << std::endl;
     /*
       These are permanent transformations, so new items must be
       allocated in the statement mem root
@@ -237,6 +240,7 @@ JOIN::optimize()
   */
   conds= optimize_cond(thd, conds, &cond_equal,
                        join_list, true, &select_lex->cond_value);
+  std::cout << "optimize4" << std::endl;
   if (thd->is_error())
   {
     error= 1;
@@ -267,6 +271,7 @@ JOIN::optimize()
     }
   }
 
+  std::cout << "optimize5" << std::endl;
 #ifdef WITH_PARTITION_STORAGE_ENGINE
   if (select_lex->partitioned_table_count && prune_table_partitions(thd))
   {
@@ -277,7 +282,7 @@ JOIN::optimize()
 #endif
 
   optimize_fts_limit_query();
-
+  std::cout << "optimize5.5" << std::endl;
   /* 
      Try to optimize count(*), min() and max() to const fields if
      there is implicit grouping (aggregate functions but no
@@ -286,6 +291,7 @@ JOIN::optimize()
   */
   if (tables_list && implicit_grouping)
   {
+	  std::cout << "optimize5.6" << std::endl;
     int res;
     /*
       opt_sum_query() returns HA_ERR_KEY_NOT_FOUND if no rows match
@@ -298,6 +304,7 @@ JOIN::optimize()
     */
     if ((res=opt_sum_query(thd, select_lex->leaf_tables, all_fields, conds)))
     {
+    	  std::cout << "optimize5.7" << std::endl;
       best_rowcount= 0;
       if (res == HA_ERR_KEY_NOT_FOUND)
       {
@@ -338,6 +345,7 @@ JOIN::optimize()
       */
       if (conds && !(thd->lex->describe & DESCRIBE_EXTENDED))
       {
+    	  std::cout << "optimize5.8" << std::endl;
         Item *table_independent_conds=
           make_cond_for_table(conds, PSEUDO_TABLE_BITS, 0, 0);
         DBUG_EXECUTE("where",
@@ -350,7 +358,7 @@ JOIN::optimize()
     }
   }
   if (!tables_list)
-  {
+  {  std::cout << "optimize5.9" << std::endl;
     DBUG_PRINT("info",("No tables"));
     best_rowcount= 1;
     error= 0;
@@ -360,7 +368,7 @@ JOIN::optimize()
   }
   error= -1;					// Error is sent to client
   sort_by_table= get_sort_by_table(order, group_list, select_lex->leaf_tables);
-
+  std::cout << "optimize5.10" << std::endl;
   /* Calculate how to do the join */
   THD_STAGE_INFO(thd, stage_statistics);
   if (make_join_statistics(this, select_lex->leaf_tables, conds, &keyuse,
@@ -369,7 +377,7 @@ JOIN::optimize()
     DBUG_PRINT("error",("Error: make_join_statistics() failed"));
     DBUG_RETURN(1);
   }
-
+  std::cout << "optimize5.11" << std::endl;
   if (rollup.state != ROLLUP::STATE_NONE)
   {
     if (rollup_process_const_fields())
@@ -432,6 +440,7 @@ JOIN::optimize()
   */
   if (conds)
   {
+	std::cout << "optimize6" << std::endl;
     conds= substitute_for_best_equal_field(conds, cond_equal, map2table);
     if (thd->is_error())
     {
@@ -485,6 +494,7 @@ JOIN::optimize()
   // Update table dependencies after assigning ref access fields
   update_depend_map(this);
 
+  std::cout << "optimize7" << std::endl;
   THD_STAGE_INFO(thd, stage_preparing);
   if (result->initialize_tables(this))
   {
@@ -498,7 +508,7 @@ JOIN::optimize()
       "Impossible WHERE noticed after reading const tables";
     goto setup_subq_exit;
   }
-
+  std::cout << "optimize8" << std::endl;
   error= -1;					/* if goto err */
 
   /* Optimize distinct away if possible */

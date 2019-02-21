@@ -439,6 +439,7 @@ public:
   /* Add a record into join buffer and call join_records() if it's full */
   virtual enum_nested_loop_state put_record()
   {
+	std::cout << "join_cache put _record" << std::endl;
     if (put_record_in_cache())
       return join_records(false);
     return NESTED_LOOP_OK;
@@ -475,6 +476,7 @@ public:
   enum_nested_loop_state join_records(bool skip_last);
 
   enum_op_type type() { return OT_CACHE; }
+  void set_field(uint num) { fields = num;};
 
   /**
     This constructor creates a join cache, linked or not. The cache is to be
@@ -554,7 +556,11 @@ public:
   /* Initialize the GPU BUFFER */
   int init();
   enum_nested_loop_state put_record();
-  bool get_record();
+  void calc_record_fields();
+  void create_flag_fields();
+  void create_remaining_fields(bool all_read_fields);
+  //bool get_record();
+  //void reset_cache(bool write);
 //  bool put_record_in_cache();
 //  uint write_record_data(uchar * link, bool *is_full);
 

@@ -1070,8 +1070,8 @@ do_select_with_gpu(JOIN *join)
   JOIN_TAB *join_tab= join->join_tab + join->const_tables;
   DBUG_ASSERT(join->primary_tables);
   error= join->first_select(join,join_tab,0);
-  if (error >= NESTED_LOOP_OK && join->thd->killed != THD::ABORT_QUERY)
-    error= join->first_select(join,join_tab,1);
+//  if (error >= NESTED_LOOP_OK && join->thd->killed != THD::ABORT_QUERY)
+//    error= join->first_select(join,join_tab,1);
   if (error == NESTED_LOOP_QUERY_LIMIT)
     error= NESTED_LOOP_OK;                    /* select_limit used */
 
@@ -1151,6 +1151,7 @@ sub_select_op(JOIN *join, JOIN_TAB *join_tab, bool end_of_records)
 
   DBUG_ENTER("sub_select_op");
 
+  std::cout << "sub_select_op call" << std::endl;
   if (join->thd->killed)
   {
     /* The user has aborted the execution of the query */
@@ -1414,11 +1415,12 @@ enum_nested_loop_state
 sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_gpu_process)
 {
       DBUG_ENTER("sub_select_gpu");
-      enum_nested_loop_state rc;
+      enum_nested_loop_state rc=NESTED_LOOP_OK;
       join_tab->table->null_row=0;
 
-      if(end_gpu_process) {
+      if(!end_gpu_process) {
       /* Stage 1 : GPU Processing */
+    	std::cout << "==========GPU Processing Stage==========" << std::endl;
         for (uint i= join->const_tables; i < join->tables; i++)
         {
           int record_num = 0;
@@ -1450,15 +1452,34 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_gpu_process)
       join_tab->not_null_compl= true;
       join_tab->found_match= false;
 
-      uint index = 0;
-      join_tab->gpu_buffer->reset_cahce(false);
+      join_tab->gpu_buffer->reset_cache(false);
+  	  std::cout << "==========BNL Stage==========" << std::endl;
 
-
-      while (rc == NESTED_LOOP_OK && join->return_tab >= join_tab && (index < join_tab->buf_record) )
+      while (rc == NESTED_LOOP_OK && join->return_tab >= join_tab )
       {
         bool end_record;
+   	    std::cout << "==========BNL Stage before get_record table==========" <<  join_tab->table->alias << std::endl;
         end_record = join_tab->gpu_buffer->get_record();
 
+   	    for (uint i= join->const_tables; i < join->tables; i++)
+   	    {
+   	     JOIN_TAB *const tab= join->join_tab+i;
+   	     Field **f_ptr,*field;
+   	  	 for (f_ptr=tab->table->field ; (field= *f_ptr) ; f_ptr++)
+   	  	 {
+   	  	  if(bitmap_is_set(tab->table->read_set, field->field_index))  {
+   	  	   std::cout << "field info " << field->field_name << " " << " field val " << field->val_int() << std::endl;
+   	  	  }
+   	  	 }
+   	    }
+
+//   	   Field **f_ptr,*field;
+//   	   for (f_ptr=join_tab->table->field ; (field= *f_ptr) ; f_ptr++)
+//   	   {
+//   		  if(bitmap_is_set(join_tab->table->read_set, field->field_index))  {
+//   		    std::cout << "field info " << field->field_name << " " << " field val " << field->val_int() << std::endl;
+//   		  }
+//   	   }
         DBUG_EXECUTE_IF("bug13822652_1", join->thd->killed= THD::KILL_QUERY;);
 
         if (join->thd->is_error())
@@ -1474,7 +1495,7 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_gpu_process)
         {
           rc= evaluate_join_record(join, join_tab);
         }
-        index++;
+        //index++;
       }
 
      DBUG_RETURN(rc);
@@ -1656,21 +1677,23 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
   DBUG_EXECUTE("where",print_where(condition,
                                    join_tab->table->alias,
                                    QT_ORDINARY););
+  std::cout << "where : " << std::string(str_where(condition, join_tab->table->alias, QT_ORDINARY)) << std::endl;
   std::cout<<"[Join order ] " << join->tables << " " << join->primary_tables
 		  << " " << join->const_tables << " " << join->tmp_tables << std::endl;
 
   if (condition)
   {
-//	char * test = new char[1000];
-//	char * test2 = new char[1000];
-//	condition->item_name.strcpy(test);
-//	condition->orig_name.strcpy(test2);
-//
-//	std::string str(test);
-//	std::string str2(test2);
-	//std::string str3(condition->str_value.ptr());
-//	std::cout<< "[Function : Evaluate_join_record = condition ] " << str
-//			<< " and " << str2 << " and " << condition->str_value.ptr() << std::endl;
+    for (uint i= join->const_tables; i < join->tables; i++)
+    {
+     JOIN_TAB *const tab= join->join_tab+i;
+     Field **f_ptr,*field;
+  	 for (f_ptr=tab->table->field ; (field= *f_ptr) ; f_ptr++)
+  	 {
+  	  if(bitmap_is_set(tab->table->read_set, field->field_index))  {
+  	   std::cout << "field info " << field->field_name << " " << " field val " << field->val_int() << std::endl;
+  	  }
+  	 }
+    }
 
 	found= MY_TEST(condition->val_int());
 
@@ -1826,13 +1849,18 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
       enum enum_nested_loop_state rc;
       /* A match from join_tab is found for the current partial join. */
       if (gpu_accelerated) {
+    	std::cout<< "gpu_accelerated" << std::endl;
     	rc= (*join_tab->next_select)(join, join_tab+1, 1);
       } else {
+      	std::cout<< "not gpu_accelerated" << std::endl;
         rc= (*join_tab->next_select)(join, join_tab+1, 0);
       }
+      std::cout<<"[Function : Evaluate_join_record : found 33] " << std::endl;
       join->thd->get_stmt_da()->inc_current_row_for_warning();
-      if (rc != NESTED_LOOP_OK)
+      if (rc != NESTED_LOOP_OK) {
+        std::cout<<"[Function : Evaluate_join_record : found 44] " << std::endl;
         DBUG_RETURN(rc);
+      }
 
       /* check for errors evaluating the condition */
       if (join->thd->is_error())
@@ -1865,10 +1893,13 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
         was not in the field list;  In this case we can abort if
         we found a row, as no new rows can be added to the result.
       */
-      if (not_used_in_distinct && found_records != join->found_records)
-        set_if_smaller(return_tab, join_tab - 1);
-
+      if (not_used_in_distinct && found_records != join->found_records) {
+          std::cout<<"[Function : Evaluate_join_record : found 55] " << std::endl;
+    	  set_if_smaller(return_tab, join_tab - 1);
+      }
+      std::cout<<"[Function : Evaluate_join_record : found 66] " << std::endl;
       set_if_smaller(join->return_tab, return_tab);
+      std::cout<<"[Function : Evaluate_join_record : found 77] " << std::endl;
     }
     else
     {

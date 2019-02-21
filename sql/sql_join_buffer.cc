@@ -182,21 +182,26 @@ void JOIN_CACHE::calc_record_fields()
   data_field_ptr_count= 0;
   referenced_fields= 0;
 
+  int index =0;
   for ( ; tab < join_tab ; tab++)
-  {	    
+  {
+	std::cout << "table num " <<index++<< std::endl;
     calc_used_field_length(join->thd, tab);
     flag_fields+= MY_TEST(tab->used_null_fields || tab->used_uneven_bit_fields);
     flag_fields+= MY_TEST(tab->table->maybe_null);
+    std::cout << "fields in used1 " << fields << std::endl;
     fields+= tab->used_fields;
     blobs+= tab->used_blobs;
-
+    std::cout << "fields in used2 " << fields << std::endl;
     fields+= tab->check_rowid_field();
+    std::cout << "fields in used3 " << fields << std::endl;
   }
   if ((with_match_flag= (join_tab->is_first_inner_for_outer_join() ||
                          (join_tab->first_sj_inner_tab == join_tab &&
                           join_tab->get_sj_strategy() == SJ_OPT_FIRST_MATCH))))
     flag_fields++;
   fields+= flag_fields;
+  std::cout << "fields in init " << fields << std::endl;
 }
 
 /* 
@@ -508,6 +513,7 @@ int JOIN_CACHE_BNL::init()
 {
   DBUG_ENTER("JOIN_CACHE::init");
 
+  std::cout<< "Join Cache BNL " <<std::endl;
   calc_record_fields();
 
   if (alloc_fields(0))
@@ -1007,6 +1013,7 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
   uchar *init_pos= cp;
   uchar *rec_len_ptr= 0;
  
+  std::cout << "pointer move in write before1 : " << (void *)pos << std::endl;
   records++;  /* Increment the counter of records in the cache */
 
   len= pack_length;
@@ -1060,6 +1067,7 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
   {
     rec_len_ptr= cp;   
     cp+= size_of_rec_len;
+    std::cout << "pointer move in write before with_length : " << (void *)pos << std::endl;
   }
 
   /*
@@ -1070,6 +1078,7 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
   {
     cp+= prev_cache->get_size_of_rec_offset();
     prev_cache->store_rec_ref(cp, link);
+    std::cout << "pointer move in write before prev_cache : " << (void *)pos << std::endl;
   } 
 
   curr_rec_pos= cp;
@@ -1085,15 +1094,19 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
   {
     memcpy(cp, copy->str, copy->length);
     cp+= copy->length;
+    std::cout << "pointer move in write before for state : " << (void *)pos << std::endl;
   } 
   
   /* Now put the values of the remaining fields as soon as they are not nulls */ 
   copy_end= field_descr+fields;
+  std::cout << " field_num = "  << fields << std::endl;
   for ( ; copy < copy_end; copy++)
   {
+	std::cout << "pointer move in write before for state2 : " << (void *)pos << std::endl;
     Field *field= copy->field;
     if (field && field->maybe_null() && is_field_null(field))
     {
+      std::cout << "a" << (void *)pos << std::endl;
       /* Do not copy a field if its value is null */
       if (copy->referenced_field_no)
         copy->offset= 0;
@@ -1125,18 +1138,21 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
     }
     else
     {
+      std::cout << "b" << (void *)pos << std::endl;
       switch (copy->type) {
       case CACHE_VARSTR1:
         /* Copy the significant part of the short varstring field */ 
         len= (uint) copy->str[0] + 1;
         memcpy(cp, copy->str, len);
         cp+= len;
+        std::cout << "c" << (void *)pos << std::endl;
         break;
       case CACHE_VARSTR2:
         /* Copy the significant part of the long varstring field */
         len= uint2korr(copy->str) + 2;
         memcpy(cp, copy->str, len);
         cp+= len;
+        std::cout << "d" << (void *)pos << std::endl;
         break;
       case CACHE_STRIPPED:
       {
@@ -1152,12 +1168,14 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
         int2store(cp, len);
 	memcpy(cp+2, str, len);
 	cp+= len+2;
+    std::cout << "e" << (void *)pos << std::endl;
         break;
       }
       default:      
         /* Copy the entire image of the field from the record buffer */
 	memcpy(cp, copy->str, copy->length);
 	cp+= copy->length;
+    std::cout << "f" << (void *)pos << std::endl;
       }
     }
   }
@@ -1165,6 +1183,7 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
   /* Add the offsets of the fields that are referenced from other caches */ 
   if (referenced_fields)
   {
+    std::cout << "ref" << (void *)pos << std::endl;
     uint cnt= 0;
     for (copy= field_descr+flag_fields; copy < copy_end ; copy++)
     {
@@ -1183,6 +1202,8 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
   last_rec_pos= curr_rec_pos; 
   end_pos= pos= cp;
   *is_full= last_record;
+
+  std::cout << "pointer move in write after : " << (void *)pos << std::endl;
   return (uint) (cp-init_pos);
 }
 
@@ -1209,6 +1230,7 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
 void JOIN_CACHE::reset_cache(bool for_writing)
 {
   pos= buff;
+  std::cout << "reset cache ::: " << (void *)pos << std::endl;
   curr_rec_link= 0;
   if (for_writing)
   {
@@ -1280,6 +1302,7 @@ bool JOIN_CACHE::get_record()
 { 
   bool res;
   uchar *prev_rec_ptr= 0;
+  std::cout << "get_record ::: " << (void *)pos << std::endl;
   if (with_length)
     pos+= size_of_rec_len;
   if (prev_cache)
@@ -3446,6 +3469,7 @@ int GPU_BUFFER::init()
 }
 
 enum_nested_loop_state GPU_BUFFER::put_record() {
+	std::cout << "gpu put_record" << std::endl;
 	if(put_record_in_cache()) {
 		  buff_size = buff_size * 2;
 		  buff = (uchar *)realloc(buff, buff_size);
@@ -3453,34 +3477,163 @@ enum_nested_loop_state GPU_BUFFER::put_record() {
 	return NESTED_LOOP_OK;
 }
 
-bool GPU_BUFFER::get_record()
-{
-  bool res;
-  uchar *prev_rec_ptr= 0;
-  std::cout << "GPU_BUFFER record num = " << records << std::endl;
+//bool GPU_BUFFER::get_record()
+//{
+//  bool res;
+//  uchar *prev_rec_ptr= 0;
+//  std::cout << "GPU_BUFFER record num = " << records << std::endl;
+//  std::cout << "pointer move in get : " << pos << std::endl;
+//
+//  if (with_length)
+//    pos+= size_of_rec_len;
+//  if (prev_cache)
+//  {
+//    pos+= prev_cache->get_size_of_rec_offset();
+//    prev_rec_ptr= prev_cache->get_rec_ref(pos);
+//  }
+//  curr_rec_pos= pos;
+//  res= (read_some_record_fields() == -1);
+//  if (!res)
+//  { // There are more records to read
+//    pos+= referenced_fields*size_of_fld_ofs;
+//    if (prev_cache)
+//    {
+//      /*
+//        read_some_record_fields() didn't read fields stored in previous
+//        buffers, read them now:
+//      */
+//      prev_cache->get_record_by_pos(prev_rec_ptr);
+//    }
+//  }
+//  return res;
+//}
+//
+//void GPU_BUFFER::reset_cache(bool for_writing)
+//{
+//  std::cout << "reset cache in GPU_BUFFER" << std::endl;
+//  pos= buff;
+//  curr_rec_link= 0;
+//  if (for_writing)
+//  {
+//    records= 0;
+//    last_rec_pos= buff;
+//    aux_buff_size= 0;
+//    end_pos= pos;
+//    last_rec_blob_data_is_in_rec_buff= 0;
+//  }
+//}
 
-  if (with_length)
-    pos+= size_of_rec_len;
-  if (prev_cache)
-  {
-    pos+= prev_cache->get_size_of_rec_offset();
-    prev_rec_ptr= prev_cache->get_rec_ref(pos);
-  }
-  curr_rec_pos= pos;
-  res= (read_some_record_fields() == -1);
-  if (!res)
-  { // There are more records to read
-    pos+= referenced_fields*size_of_fld_ofs;
-    if (prev_cache)
+void GPU_BUFFER::calc_record_fields()
+{
+  /*
+    If there is a previous cache, start with the corresponding table, otherwise:
+    - if in a regular execution, start with the first non-const table.
+    - if in a materialized subquery, start with the first table of the subquery.
+  */
+  JOIN_TAB *tab = prev_cache ?
+                    prev_cache->join_tab :
+                    sj_is_materialize_strategy(join_tab->get_sj_strategy()) ?
+                      join_tab->first_sj_inner_tab :
+                      join->join_tab+join->const_tables;
+  tables= join_tab-tab;
+
+  fields= 0;
+  blobs= 0;
+  flag_fields= 0;
+  data_field_count= 0;
+  data_field_ptr_count= 0;
+  referenced_fields= 0;
+
+//  for ( ; tab <= join_tab ; tab++)
+//  {
+    calc_used_field_length(join->thd, join_tab);
+    flag_fields+= MY_TEST(tab->used_null_fields || tab->used_uneven_bit_fields);
+    flag_fields+= MY_TEST(tab->table->maybe_null);
+    fields+= join_tab->used_fields;
+    blobs+= join_tab->used_blobs;
+    fields+= join_tab->check_rowid_field();
+  //}
+  if ((with_match_flag= (join_tab->is_first_inner_for_outer_join() ||
+                         (join_tab->first_sj_inner_tab == join_tab &&
+                          join_tab->get_sj_strategy() == SJ_OPT_FIRST_MATCH))))
+    flag_fields++;
+  fields+= flag_fields;
+}
+
+void GPU_BUFFER::create_flag_fields()
+{
+  CACHE_FIELD *copy;
+  JOIN_TAB *tab = join_tab;
+
+  copy= field_descr;
+
+  length=0;
+
+  /* If there is a match flag the first field is always used for this flag */
+  if (with_match_flag)
+    length+= add_flag_field_to_join_cache((uchar*) &tab->found,
+                                          sizeof(tab->found),
+	                                  &copy);
+
+  /* Create fields for all null bitmaps and null row flags that are needed */
+    TABLE *table= tab->table;
+
+    /* Create a field for the null bitmap from table if needed */
+    if (tab->used_null_fields || tab->used_uneven_bit_fields)
+      length+= add_flag_field_to_join_cache(table->null_flags,
+                                            table->s->null_bytes,
+                                            &copy);
+
+    /* Create table for the null row flag if needed */
+    if (table->maybe_null)
+      length+= add_flag_field_to_join_cache((uchar*) &table->null_row,
+                                            sizeof(table->null_row),
+                                            &copy);
+  /* Theoretically the new value of flag_fields can be less than the old one */
+  flag_fields= copy-field_descr;
+}
+
+void GPU_BUFFER:: create_remaining_fields(bool all_read_fields)
+{
+  JOIN_TAB *tab;
+  CACHE_FIELD *copy= field_descr+flag_fields+data_field_count;
+  CACHE_FIELD **copy_ptr= blob_ptr+data_field_ptr_count;
+
+    tab=join_tab;
+    MY_BITMAP *rem_field_set;
+    TABLE *table= tab->table;
+
+    if (all_read_fields)
+      rem_field_set= table->read_set;
+    else
     {
-      /*
-        read_some_record_fields() didn't read fields stored in previous
-        buffers, read them now:
-      */
-      prev_cache->get_record_by_pos(prev_rec_ptr);
+      bitmap_invert(&table->tmp_set);
+      bitmap_intersect(&table->tmp_set, table->read_set);
+      rem_field_set= &table->tmp_set;
     }
-  }
-  return res;
+
+    length+= add_table_data_fields_to_join_cache(tab, rem_field_set,
+                                                 &data_field_count, &copy,
+                                                 &data_field_ptr_count,
+                                                 &copy_ptr);
+
+    /* SemiJoinDuplicateElimination: allocate space for rowid if needed */
+    if (tab->keep_current_rowid)
+    {
+      copy->str= table->file->ref;
+      copy->length= table->file->ref_length;
+      copy->type= 0;
+      copy->field= 0;
+      copy->referenced_field_no= 0;
+      copy->next_copy_rowid= NULL;
+      // Chain rowid copy objects belonging to same join_tab
+      if (tab->copy_current_rowid != NULL)
+        copy->next_copy_rowid= tab->copy_current_rowid;
+      tab->copy_current_rowid= copy;
+      length+= copy->length;
+      data_field_count++;
+      copy++;
+    }
 }
 
 enum_nested_loop_state GPU_BUFFER::join_matching_records(bool skip_last)

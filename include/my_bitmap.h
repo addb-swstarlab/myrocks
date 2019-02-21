@@ -76,6 +76,7 @@ extern void bitmap_lock_clear_bit(MY_BITMAP *map, uint bitmap_bit);
 
 static inline void bitmap_set_bit(MY_BITMAP *map, uint bit)
 {
+  printf("bitmap_set_bit call\n");
   DBUG_ASSERT(bit < map->n_bits);
   ((uchar*)map->bitmap)[bit / 8] |= (1 << (bit & 7));
 }
@@ -90,6 +91,7 @@ static inline void bitmap_flip_bit(MY_BITMAP *map, uint bit)
 
 static inline void bitmap_clear_bit(MY_BITMAP *map, uint bit)
 {
+  printf("bitmap_clear_bit call\n");
   DBUG_ASSERT(bit < map->n_bits);
   ((uchar*)map->bitmap)[bit / 8] &= ~(1 << (bit & 7));
 }
@@ -97,6 +99,7 @@ static inline void bitmap_clear_bit(MY_BITMAP *map, uint bit)
 
 static inline my_bool bitmap_is_set(const MY_BITMAP *map, uint bit)
 {
+  printf("bitmap_is_set call\n");
   DBUG_ASSERT(bit < map->n_bits);
   return ((uchar*)map->bitmap)[bit / 8] & (1 << (bit & 7));
 }

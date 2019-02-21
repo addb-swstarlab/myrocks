@@ -78,6 +78,20 @@ print_where(Item *cond,const char *info, enum_query_type query_type)
   (void) fputc('\n',DBUG_FILE);
   DBUG_UNLOCK_FILE;
 }
+
+char *
+str_where(Item *cond,const char *info, enum_query_type query_type)
+{
+  static char buff[512];
+  String str(buff,(uint32) sizeof(buff), system_charset_info);
+  str.length(0);
+  if (cond)
+	  cond->print_item_w_name(&str,query_type);
+    //cond->print(&str, query_type);
+  str.append('\0');
+
+  return buff;
+}
 	/* This is for debugging purposes */
 
 

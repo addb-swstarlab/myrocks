@@ -206,7 +206,7 @@ public:
   virtual enum_nested_loop_state end_send()= 0;
   /* GPU Accelerator */
   virtual bool get_record() {return false;};
-  virtual void reset_cahce(bool write) {};
+  virtual void reset_cache(bool write) {std::cout<< "reset cache" <<std::endl;};
   /**
     Internal state cleanup.
   */

@@ -948,9 +948,13 @@ bool JOIN::destroy()
       }
       tab->op->free();
       tab->op= NULL;
-      /* GPU Accelerator */
-      tab->gpu_buffer->free();
-      tab->gpu_buffer = NULL;
+
+    }
+    if (tab->gpu_buffer) {
+       /* GPU Accelerator */
+       std::cout << "gpu buffer free" << std::endl;
+       tab->gpu_buffer->free();
+       tab->gpu_buffer = NULL;
     }
 
     tab->table= NULL;
@@ -1306,6 +1310,7 @@ void calc_used_field_length(THD *thd, JOIN_TAB *join_tab)
   uneven_bit_fields= null_fields= blobs= fields= rec_length=0;
   for (f_ptr=join_tab->table->field ; (field= *f_ptr) ; f_ptr++)
   {
+	std::cout << "field index " << field->field_index << std::endl;
     if (bitmap_is_set(read_set, field->field_index))
     {
       uint flags=field->flags;
@@ -2429,11 +2434,13 @@ static bool setup_join_buffering(JOIN_TAB *tab, JOIN *join,
   const uint tableno= tab - join->join_tab;
   const uint tab_sj_strategy= tab->get_sj_strategy();
 
+  if(gpu_accelerated){
   /* GPU Accelerator */
   std::cout << "gpu initialize " << std::endl;
 
   tab->gpu_buffer = new GPU_BUFFER(join, tab, NULL);
   tab->gpu_buffer->init();
+  }
 
   bool use_bka_unique= false;
   DBUG_EXECUTE_IF("test_bka_unique", use_bka_unique= true;);

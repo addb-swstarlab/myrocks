@@ -1064,7 +1064,7 @@ public:
   /* GPU Accelerator */
   const class Item *cond_push(const class Item *cond) override;
   class Item *idx_cond_push(uint keyno, class Item *const idx_cond) override;
-  const char * make_cond_str(Item *const item);
+  const char * make_cond_str(Item * const item);
   /*
     Default implementation from cancel_pushed_idx_cond() suits us
   */
