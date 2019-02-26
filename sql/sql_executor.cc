@@ -1063,7 +1063,7 @@ do_select_with_gpu(JOIN *join)
   int rc= 0;
   enum_nested_loop_state error= NESTED_LOOP_OK;
   DBUG_ENTER("do_select_with_gpu");
-  std::cout << "do_select_with_gpu is called " <<std::endl;
+  std::cout << "do_select_with_gpu " <<std::endl;
 
   join->send_records=0;
 
@@ -1420,7 +1420,6 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_gpu_process)
 
       if(!end_gpu_process) {
       /* Stage 1 : GPU Processing */
-    	std::cout << "==========GPU Processing Stage==========" << std::endl;
         for (uint i= join->const_tables; i < join->tables; i++)
         {
           int record_num = 0;
@@ -1453,33 +1452,27 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_gpu_process)
       join_tab->found_match= false;
 
       join_tab->gpu_buffer->reset_cache(false);
-  	  std::cout << "==========BNL Stage==========" << std::endl;
 
       while (rc == NESTED_LOOP_OK && join->return_tab >= join_tab )
       {
         bool end_record;
-   	    std::cout << "==========BNL Stage before get_record table==========" <<  join_tab->table->alias << std::endl;
+   	    //std::cout << "==========BNL Stage before get_record table==========" <<  join_tab->table->alias << std::endl;
         end_record = join_tab->gpu_buffer->get_record();
 
-   	    for (uint i= join->const_tables; i < join->tables; i++)
-   	    {
-   	     JOIN_TAB *const tab= join->join_tab+i;
-   	     Field **f_ptr,*field;
-   	  	 for (f_ptr=tab->table->field ; (field= *f_ptr) ; f_ptr++)
-   	  	 {
-   	  	  if(bitmap_is_set(tab->table->read_set, field->field_index))  {
-   	  	   std::cout << "field info " << field->field_name << " " << " field val " << field->val_int() << std::endl;
-   	  	  }
-   	  	 }
-   	    }
+        /* Check for Record Contens */
+//   	    for (uint i= join->const_tables; i < join->tables; i++)
+//   	    {
+//   	     JOIN_TAB *const tab= join->join_tab+i;
+//   	     Field **f_ptr,*field;
+//   	  	 for (f_ptr=tab->table->field ; (field= *f_ptr) ; f_ptr++)
+//   	  	 {
+//   	  	  if(bitmap_is_set(tab->table->read_set, field->field_index))  {
+//   	  	   std::cout << "field info " << field->field_name << " " << " field type " <<field->type() <<
+//   	  			   " field val " << field->val_int() << std::endl;
+//   	  	  }
+//   	  	 }
+//   	    }
 
-//   	   Field **f_ptr,*field;
-//   	   for (f_ptr=join_tab->table->field ; (field= *f_ptr) ; f_ptr++)
-//   	   {
-//   		  if(bitmap_is_set(join_tab->table->read_set, field->field_index))  {
-//   		    std::cout << "field info " << field->field_name << " " << " field val " << field->val_int() << std::endl;
-//   		  }
-//   	   }
         DBUG_EXECUTE_IF("bug13822652_1", join->thd->killed= THD::KILL_QUERY;);
 
         if (join->thd->is_error())
@@ -1495,7 +1488,6 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_gpu_process)
         {
           rc= evaluate_join_record(join, join_tab);
         }
-        //index++;
       }
 
      DBUG_RETURN(rc);
@@ -1678,26 +1670,12 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
                                    join_tab->table->alias,
                                    QT_ORDINARY););
   std::cout << "where : " << std::string(str_where(condition, join_tab->table->alias, QT_ORDINARY)) << std::endl;
-  std::cout<<"[Join order ] " << join->tables << " " << join->primary_tables
-		  << " " << join->const_tables << " " << join->tmp_tables << std::endl;
 
   if (condition)
   {
-    for (uint i= join->const_tables; i < join->tables; i++)
-    {
-     JOIN_TAB *const tab= join->join_tab+i;
-     Field **f_ptr,*field;
-  	 for (f_ptr=tab->table->field ; (field= *f_ptr) ; f_ptr++)
-  	 {
-  	  if(bitmap_is_set(tab->table->read_set, field->field_index))  {
-  	   std::cout << "field info " << field->field_name << " " << " field val " << field->val_int() << std::endl;
-  	  }
-  	 }
-    }
-
 	found= MY_TEST(condition->val_int());
 
-    std::cout<<"[Function : Evaluate_join_record found ] " << found << " and " << condition->val_int() << std::endl;
+    //std::cout<<"[Function : Evaluate_join_record found ] " << found << " and " << condition->val_int() << std::endl;
 
     if (join->thd->killed)
     {
@@ -1715,7 +1693,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
       There is no condition on this join_tab or the attached pushed down
       condition is true => a match is found.
     */
-	std::cout<<"[Function : Evaluate_join_record : found in ] " << std::endl;
+	//std::cout<<"[Function : Evaluate_join_record : found in ] " << std::endl;
     while (join_tab->first_unmatched && found)
     {
       /*
@@ -1723,7 +1701,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
         the last inner join table of an outer join operation.
       */
       JOIN_TAB *first_unmatched= join_tab->first_unmatched;
-      std::cout<<"[Function : Evaluate_join_record : first_unmatched : %s ] " << first_unmatched->table->alias << std::endl;
+      //std::cout<<"[Function : Evaluate_join_record : first_unmatched : %s ] " << first_unmatched->table->alias << std::endl;
       /*
         Mark that a match for current outer table is found.
         This activates push down conditional predicates attached
@@ -1732,7 +1710,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
       first_unmatched->found= 1;
       for (JOIN_TAB *tab= first_unmatched; tab <= join_tab; tab++)
       {
-    	std::cout<<"[Function : Evaluate_join_record : for ] " << std::endl;
+    	//std::cout<<"[Function : Evaluate_join_record : for ] " << std::endl;
         /* Check all predicates that has just been activated. */
         /*
           Actually all predicates non-guarded by first_unmatched->found
@@ -1754,7 +1732,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
 
         if (tab->condition() && !tab->condition()->val_int())
         {
-          std::cout<<"[Function : Evaluate_join_record : condition] " << std::endl;
+          //std::cout<<"[Function : Evaluate_join_record : condition] " << std::endl;
           /* The condition attached to table tab is false */
 
           if (tab->table->reginfo.not_exists_optimize)
@@ -1769,13 +1747,13 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
               upper level will not yield a NULL-complemented record.
             */
             join->return_tab= join_tab - 1;
-        	std::cout<<"[Function : Evaluate_join_record : optimize : %s] " << join->return_tab->table->alias << std::endl;
+        	//std::cout<<"[Function : Evaluate_join_record : optimize : %s] " << join->return_tab->table->alias << std::endl;
             DBUG_RETURN(NESTED_LOOP_OK);
           }
 
           if (tab == join_tab) {
             found= 0;
-            std::cout<<"[Function : Evaluate_join_record : found]" << std::endl;
+            //std::cout<<"[Function : Evaluate_join_record : found]" << std::endl;
           }
           else
           {
@@ -1784,7 +1762,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
               not to the last table of the current nest level.
             */
             join->return_tab= tab;
-            std::cout<<"[Function : Evaluate_join_record : reject : %s] " << join->return_tab->table->alias << std::endl;
+            //std::cout<<"[Function : Evaluate_join_record : reject : %s] " << join->return_tab->table->alias << std::endl;
             DBUG_RETURN(NESTED_LOOP_OK);
           }
         }
@@ -1803,7 +1781,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
 
     if (join_tab->finishes_weedout() && found)
     {
-      std::cout<<"[Function : Evaluate_join_record : weedout] " << std::endl;
+      //std::cout<<"[Function : Evaluate_join_record : weedout] " << std::endl;
       int res= do_sj_dups_weedout(join->thd, join_tab->check_weed_out_table);
       if (res == -1)
         DBUG_RETURN(NESTED_LOOP_ERROR);
@@ -1812,7 +1790,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
     }
     else if (join_tab->do_loosescan() && join_tab->match_tab->found_match)
     { 
-      std::cout<<"[Function : Evaluate_join_record : LooseScan : %s] " << join_tab->match_tab->table->alias << std::endl;
+      //std::cout<<"[Function : Evaluate_join_record : LooseScan : %s] " << join_tab->match_tab->table->alias << std::endl;
       /* Loosescan algorithm requires 'sorted' retrieval of keys. */
       DBUG_ASSERT(join_tab->use_order());
       /* 
@@ -1845,20 +1823,20 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
 
     if (found)
     {
-      std::cout<<"[Function : Evaluate_join_record : found 22] " << std::endl;
+      //std::cout<<"[Function : Evaluate_join_record : found 22] " << std::endl;
       enum enum_nested_loop_state rc;
       /* A match from join_tab is found for the current partial join. */
       if (gpu_accelerated) {
-    	std::cout<< "gpu_accelerated" << std::endl;
+    	//std::cout<< "gpu_accelerated" << std::endl;
     	rc= (*join_tab->next_select)(join, join_tab+1, 1);
       } else {
-      	std::cout<< "not gpu_accelerated" << std::endl;
+      	//std::cout<< "not gpu_accelerated" << std::endl;
         rc= (*join_tab->next_select)(join, join_tab+1, 0);
       }
-      std::cout<<"[Function : Evaluate_join_record : found 33] " << std::endl;
+      //std::cout<<"[Function : Evaluate_join_record : found 33] " << std::endl;
       join->thd->get_stmt_da()->inc_current_row_for_warning();
       if (rc != NESTED_LOOP_OK) {
-        std::cout<<"[Function : Evaluate_join_record : found 44] " << std::endl;
+        //std::cout<<"[Function : Evaluate_join_record : found 44] " << std::endl;
         DBUG_RETURN(rc);
       }
 
@@ -1868,7 +1846,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
 
       if (join_tab->do_loosescan() && join_tab->match_tab->found_match)
       {
-        std::cout<<"[Function : Evaluate_join_record : key_copy] " << std::endl;
+        //std::cout<<"[Function : Evaluate_join_record : key_copy] " << std::endl;
         /* 
            A match was found for a duplicate-generating range of a semijoin. 
            Copy key to be able to determine whether subsequent rows
@@ -1880,7 +1858,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
       }
       else if (join_tab->do_firstmatch() && join_tab->match_tab->found_match)
       {
-        std::cout<<"[Function : Evaluate_join_record : do_firstmatch]" << std::endl;
+        //std::cout<<"[Function : Evaluate_join_record : do_firstmatch]" << std::endl;
         /* 
           We should return to join_tab->firstmatch_return after we have 
           enumerated all the suffixes for current prefix row combination
@@ -1894,16 +1872,16 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
         we found a row, as no new rows can be added to the result.
       */
       if (not_used_in_distinct && found_records != join->found_records) {
-          std::cout<<"[Function : Evaluate_join_record : found 55] " << std::endl;
+          //std::cout<<"[Function : Evaluate_join_record : found 55] " << std::endl;
     	  set_if_smaller(return_tab, join_tab - 1);
       }
-      std::cout<<"[Function : Evaluate_join_record : found 66] " << std::endl;
+      //std::cout<<"[Function : Evaluate_join_record : found 66] " << std::endl;
       set_if_smaller(join->return_tab, return_tab);
-      std::cout<<"[Function : Evaluate_join_record : found 77] " << std::endl;
+      //std::cout<<"[Function : Evaluate_join_record : found 77] " << std::endl;
     }
     else
     {
-      std::cout<<"[Function : Evaluate_join_record : not found] " << std::endl;
+      //std::cout<<"[Function : Evaluate_join_record : not found] " << std::endl;
       join->thd->get_stmt_da()->inc_current_row_for_warning();
       if (join_tab->not_null_compl)
       {
@@ -1918,7 +1896,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
       The condition pushed down to the table join_tab rejects all rows
       with the beginning coinciding with the current partial join.
     */
-    std::cout<<"[Function : Evaluate_join_record : not found] " << std::endl;
+    //std::cout<<"[Function : Evaluate_join_record : not found] " << std::endl;
     join->examined_rows++;
     join->thd->get_stmt_da()->inc_current_row_for_warning();
     if (join_tab->not_null_compl)

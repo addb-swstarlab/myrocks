@@ -1310,7 +1310,6 @@ void calc_used_field_length(THD *thd, JOIN_TAB *join_tab)
   uneven_bit_fields= null_fields= blobs= fields= rec_length=0;
   for (f_ptr=join_tab->table->field ; (field= *f_ptr) ; f_ptr++)
   {
-	std::cout << "field index " << field->field_index << std::endl;
     if (bitmap_is_set(read_set, field->field_index))
     {
       uint flags=field->flags;

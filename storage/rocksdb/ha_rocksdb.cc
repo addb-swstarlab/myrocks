@@ -2530,9 +2530,11 @@ public:
   virtual rocksdb::Status get(rocksdb::ColumnFamilyHandle *const column_family,
                               const rocksdb::Slice &key,
                               rocksdb::PinnableSlice *const value) const = 0;
+
   virtual rocksdb::Status get_with_gpu(rocksdb::ColumnFamilyHandle *const column_family,
                               const rocksdb::Slice &key,
-                              rocksdb::PinnableSlice *const value) const { rocksdb::Status s; return s;};
+                              std::vector<rocksdb::PinnableSlice *> &values) const { rocksdb::Status s; return s;};
+
   virtual rocksdb::Status
   get_for_update(rocksdb::ColumnFamilyHandle *const column_family,
                  const rocksdb::Slice &key, rocksdb::PinnableSlice *const value,
@@ -2906,13 +2908,13 @@ public:
 
   rocksdb::Status get_with_gpu(rocksdb::ColumnFamilyHandle *const column_family,
                       const rocksdb::Slice &key,
-                      rocksdb::PinnableSlice *const value) const override {
+                      std::vector<rocksdb::PinnableSlice *> &values) const override {
     // clean PinnableSlice right begfore Get() for multiple gets per statement
     // the resources after the last Get in a statement are cleared in
     // handler::reset call
-    value->Reset();
+    //value->Reset();
     global_stats.queries[QUERIES_POINT].inc();
-    return m_rocksdb_tx->Get_with_GPU(m_read_opts, column_family, key, value);
+    return m_rocksdb_tx->Get_with_GPU(m_read_opts, column_family, key, values);
   }
 
   rocksdb::Status
@@ -11741,55 +11743,61 @@ int ha_rocksdb::ha_bulk_load_from_gpu(int record_seq, uchar* buf) {
     gkeys.clear();
     gvalues.clear();
 
-//    Rdb_transaction *const tx = get_or_create_tx(table->in_use);
-//    DBUG_ASSERT(tx != nullptr);
-//
-//    //uint key_size;
-//    //int key_start_matching_bytes = m_pk_descr->get_first_key(m_pk_packed_tuple, &key_size);
-//    rocksdb::Slice table_key((const char *)m_pk_packed_tuple, 4);
-//
-//    tx->acquire_snapshot(true);
-//    rocksdb::Status s = tx->get_with_gpu(m_pk_descr->get_cf(), table_key, &m_retrieved_record);
+    Rdb_transaction *const tx = get_or_create_tx(table->in_use);
+    DBUG_ASSERT(tx != nullptr);
 
+
+    uint size = m_decoders_vect.size();
+    uint * type = new uint[size];
+    uint * length = new uint[size];
+    uint idx = 0;
+    for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end(); it++) {
+      const Rdb_field_encoder *const field_dec = it->m_field_enc;
+      type[idx] = typeToInt(field_dec->m_field_type);
+      length[idx] = field_dec->m_pack_length_in_rec;
+    }
+    rocksdb::SlicewithSchema table_key((const char *)m_pk_packed_tuple, 4, cond_str, type, length);
+    std::string test;
+    test.assign((const char*)m_pk_packed_tuple,4);
+    std::cout << "table key" << test << std::endl;
+
+//    tx->acquire_snapshot(true);
+    rocksdb::Status s = tx->get_with_gpu(m_pk_descr->get_cf(), table_key, pvalues);
 
     /* Iteration Code for implementation */
-  for (;;) {
-    if (!is_valid(m_scan_it)) {
-      rc = HA_ERR_END_OF_FILE;
-      break;
-    }
-
-	/* check if we're out of this table */
-    const rocksdb::Slice key = m_scan_it->key();
-    if (!m_pk_descr->covers_key(key)) {
-      rc = HA_ERR_END_OF_FILE;
-      break;
-    }
-    gkeys.push_back(key);
-
-    // Use the value from the iterator
-    rocksdb::Slice value = m_scan_it->value();
-	m_last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-    gvalues.push_back(value);
-	std::cout << "Record contents : " << value.ToString(0) << std::endl;
-	std::cout << "Before Record : " << table->record[0] << std::endl;
-
-	if (!rc) {
-	  stats.rows_read++;
-	  stats.rows_index_next++;
-	  update_row_stats(ROWS_READ);
-	}
-	table->status = 0;
-	record_num++;
-	m_scan_it->Next();
-  }
+//  for (;;) {
+//    if (!is_valid(m_scan_it)) {
+//      rc = HA_ERR_END_OF_FILE;
+//      break;
+//    }
+//
+//	/* check if we're out of this table */
+//    const rocksdb::Slice key = m_scan_it->key();
+//    if (!m_pk_descr->covers_key(key)) {
+//      rc = HA_ERR_END_OF_FILE;
+//      break;
+//    }
+//    gkeys.push_back(key);
+//
+//    // Use the value from the iterator
+//    rocksdb::Slice value = m_scan_it->value();
+//	m_last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
+//    gvalues.push_back(value);
+////	std::cout << "Record contents : " << value.ToString(0) << std::endl;
+////	std::cout << "Before Record : " << table->record[0] << std::endl;
+//
+//	if (!rc) {
+//	  stats.rows_read++;
+//	  stats.rows_index_next++;
+//	  update_row_stats(ROWS_READ);
+//	}
+//	table->status = 0;
+//	record_num++;
+//	m_scan_it->Next();
+//  }
     rc=record_num;
-	std::cout << "Record num: " << record_num << std::endl;
-
   } else {
-	  std::cout << "before convert_record_format_gpu " << record_seq << std::endl;
 	  rc = convert_record_from_storage_format_gpu(&gkeys[record_seq - 1], &gvalues[record_seq - 1], buf);
-	  std::cout << "after convert_record_format_gpu " << record_seq << std::endl;
   }
 
   DBUG_RETURN(rc);
@@ -13931,6 +13939,46 @@ std::string rdb_corruption_marker_file_name() {
   ret.append("/ROCKSDB_CORRUPTED");
   return ret;
 }
+
+uint typeToInt(my_core::enum_field_types type) {
+	switch (type) {
+		case(MYSQL_TYPE_DECIMAL): return 0;
+		case(MYSQL_TYPE_TINY): return 1;
+		case(MYSQL_TYPE_SHORT): return 2;
+		case(MYSQL_TYPE_LONG): return 3;
+		case(MYSQL_TYPE_FLOAT): return 4;
+		case(MYSQL_TYPE_DOUBLE): return 5;
+		case(MYSQL_TYPE_NULL): return 6;
+		case(MYSQL_TYPE_TIMESTAMP): return 7;
+		case(MYSQL_TYPE_LONGLONG): return 8;
+		case(MYSQL_TYPE_INT24): return 9;
+		case(MYSQL_TYPE_DATE): return 10;
+		case(MYSQL_TYPE_TIME): return 11;
+		case(MYSQL_TYPE_DATETIME): return 12;
+		case(MYSQL_TYPE_YEAR): return 13;
+		case(MYSQL_TYPE_NEWDATE): return 14;
+		case(MYSQL_TYPE_VARCHAR): return 15;
+		case(MYSQL_TYPE_BIT): return 16;
+		case(MYSQL_TYPE_TIMESTAMP2): return 17;
+		case(MYSQL_TYPE_DATETIME2): return 18;
+		case(MYSQL_TYPE_TIME2): return 19;
+		case(MYSQL_TYPE_DOCUMENT): return 20;
+		case(MYSQL_TYPE_DOCUMENT_VALUE): return 21;
+		case(MYSQL_TYPE_DOCUMENT_UNKNOWN): return 22;
+		case(MYSQL_TYPE_NEWDECIMAL): return 246;
+		case(MYSQL_TYPE_ENUM): return 247;
+		case(MYSQL_TYPE_SET): return 248;
+		case(MYSQL_TYPE_TINY_BLOB): return 249;
+		case(MYSQL_TYPE_MEDIUM_BLOB): return 250;
+		case(MYSQL_TYPE_LONG_BLOB): return 251;
+		case(MYSQL_TYPE_BLOB): return 252;
+		case(MYSQL_TYPE_VAR_STRING): return 253;
+		case(MYSQL_TYPE_STRING): return 254;
+		case(MYSQL_TYPE_GEOMETRY): return 255;
+		default : return 6;
+	}
+}
+
 
 } // namespace myrocks
 

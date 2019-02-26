@@ -1013,7 +1013,6 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
   uchar *init_pos= cp;
   uchar *rec_len_ptr= 0;
  
-  std::cout << "pointer move in write before1 : " << (void *)pos << std::endl;
   records++;  /* Increment the counter of records in the cache */
 
   len= pack_length;
@@ -1067,7 +1066,6 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
   {
     rec_len_ptr= cp;   
     cp+= size_of_rec_len;
-    std::cout << "pointer move in write before with_length : " << (void *)pos << std::endl;
   }
 
   /*
@@ -1078,7 +1076,6 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
   {
     cp+= prev_cache->get_size_of_rec_offset();
     prev_cache->store_rec_ref(cp, link);
-    std::cout << "pointer move in write before prev_cache : " << (void *)pos << std::endl;
   } 
 
   curr_rec_pos= cp;
@@ -1094,19 +1091,15 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
   {
     memcpy(cp, copy->str, copy->length);
     cp+= copy->length;
-    std::cout << "pointer move in write before for state : " << (void *)pos << std::endl;
   } 
   
   /* Now put the values of the remaining fields as soon as they are not nulls */ 
   copy_end= field_descr+fields;
-  std::cout << " field_num = "  << fields << std::endl;
   for ( ; copy < copy_end; copy++)
   {
-	std::cout << "pointer move in write before for state2 : " << (void *)pos << std::endl;
     Field *field= copy->field;
     if (field && field->maybe_null() && is_field_null(field))
     {
-      std::cout << "a" << (void *)pos << std::endl;
       /* Do not copy a field if its value is null */
       if (copy->referenced_field_no)
         copy->offset= 0;
@@ -1138,21 +1131,18 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
     }
     else
     {
-      std::cout << "b" << (void *)pos << std::endl;
       switch (copy->type) {
       case CACHE_VARSTR1:
         /* Copy the significant part of the short varstring field */ 
         len= (uint) copy->str[0] + 1;
         memcpy(cp, copy->str, len);
         cp+= len;
-        std::cout << "c" << (void *)pos << std::endl;
         break;
       case CACHE_VARSTR2:
         /* Copy the significant part of the long varstring field */
         len= uint2korr(copy->str) + 2;
         memcpy(cp, copy->str, len);
         cp+= len;
-        std::cout << "d" << (void *)pos << std::endl;
         break;
       case CACHE_STRIPPED:
       {
@@ -1168,14 +1158,12 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
         int2store(cp, len);
 	memcpy(cp+2, str, len);
 	cp+= len+2;
-    std::cout << "e" << (void *)pos << std::endl;
         break;
       }
       default:      
         /* Copy the entire image of the field from the record buffer */
 	memcpy(cp, copy->str, copy->length);
 	cp+= copy->length;
-    std::cout << "f" << (void *)pos << std::endl;
       }
     }
   }
@@ -1183,7 +1171,6 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
   /* Add the offsets of the fields that are referenced from other caches */ 
   if (referenced_fields)
   {
-    std::cout << "ref" << (void *)pos << std::endl;
     uint cnt= 0;
     for (copy= field_descr+flag_fields; copy < copy_end ; copy++)
     {
@@ -1203,7 +1190,6 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
   end_pos= pos= cp;
   *is_full= last_record;
 
-  std::cout << "pointer move in write after : " << (void *)pos << std::endl;
   return (uint) (cp-init_pos);
 }
 
@@ -1230,7 +1216,6 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
 void JOIN_CACHE::reset_cache(bool for_writing)
 {
   pos= buff;
-  std::cout << "reset cache ::: " << (void *)pos << std::endl;
   curr_rec_link= 0;
   if (for_writing)
   {
@@ -1302,7 +1287,6 @@ bool JOIN_CACHE::get_record()
 { 
   bool res;
   uchar *prev_rec_ptr= 0;
-  std::cout << "get_record ::: " << (void *)pos << std::endl;
   if (with_length)
     pos+= size_of_rec_len;
   if (prev_cache)

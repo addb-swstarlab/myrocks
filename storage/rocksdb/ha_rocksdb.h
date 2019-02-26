@@ -632,6 +632,7 @@ class ha_rocksdb : public my_core::handler {
   /* GPU Accelerator */
   std::vector <rocksdb::Slice> gkeys;
   std::vector <rocksdb::Slice> gvalues;
+  std::vector <rocksdb::PinnableSlice *> pvalues;
 
   int ha_bulk_load_from_gpu(int record_seq, uchar * buf) override;
   int create_key_defs(const TABLE *const table_arg,
@@ -1452,5 +1453,7 @@ private:
 
 // file name indicating RocksDB data corruption
 std::string rdb_corruption_marker_file_name();
+/*GPU Accelerator*/
+uint typeToInt(my_core::enum_field_types type);
 
 } // namespace myrocks
