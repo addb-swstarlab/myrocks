@@ -11760,7 +11760,10 @@ int ha_rocksdb::ha_bulk_load_from_gpu(int record_seq, uchar* buf) {
     std::string test;
     test.assign((const char*)m_pk_packed_tuple,4);
     std::cout << "table key" << test << std::endl;
-
+    for( uint i=1; i<size; i++) {
+    std::cout << "SliceWithSchema info -- type : " << table_key.getType(i)
+    		<< " length : " << table_key.getLength(i) << std::endl;
+    }
 //    tx->acquire_snapshot(true);
     rocksdb::Status s = tx->get_with_gpu(m_pk_descr->get_cf(), table_key, pvalues);
 
