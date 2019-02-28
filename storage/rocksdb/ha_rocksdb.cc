@@ -11738,6 +11738,45 @@ int ha_rocksdb::ha_bulk_load_from_gpu(int record_seq, uchar* buf) {
   Item * item = const_cast<Item *>(pushed_cond);
   std::string cond_str(make_cond_str(item));
   std::cout << "Condition Str = " << cond_str << std::endl;
+  std::vector<std::string> conditions;
+
+  /* split conditions */
+  split_from_string("and", cond_str, conditions);
+  std::vector<std::string>::iterator iter;
+
+
+  std::string field_str, cond="INVALID";
+  int type;
+  int idx = -1;
+  long pivot = LONG_MAX;
+
+  Field **ptr;
+  Field * field;
+
+  for(iter=conditions.begin(); iter!=conditions.end(); ++iter) {
+	  std::vector<std::string> check;
+	  split_from_string(".", *iter, check);
+
+	  if(check.size() > 3)
+		  continue;
+	  std::vector<std::string> ret;
+	  split_from_string(" ", check[2], ret);
+
+	  for(ptr = table->field; (field=*ptr); ptr++) {
+		  std::string field_name = ret[0].substr(1, ret[0].length()-2);
+ 		  if(!field_name.compare(field->field_name)) {
+			type = typeToInt(field->type());
+			idx = field->field_index;
+		  }
+	  }
+	  if(type == 3) {
+		if((pivot = atol(ret[2].substr(0, ret[0].length()-1).c_str()))){
+			cond = ret[1];
+			break;
+	  	}
+	  }
+  }
+
 
   if(record_seq == 0) {
     gkeys.clear();
@@ -11750,19 +11789,31 @@ int ha_rocksdb::ha_bulk_load_from_gpu(int record_seq, uchar* buf) {
     uint size = m_decoders_vect.size();
     uint * type = new uint[size];
     uint * length = new uint[size];
-    uint idx = 0;
+    uint field_idx = 0;
     for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end(); it++) {
       const Rdb_field_encoder *const field_dec = it->m_field_enc;
-      type[idx] = typeToInt(field_dec->m_field_type);
-      length[idx] = field_dec->m_pack_length_in_rec;
+      type[field_idx] = typeToInt(field_dec->m_field_type);
+      if(field_dec->uses_variable_len_encoding()) {
+    	my_core::Field_varstring * f = reinterpret_cast <my_core::Field_varstring *>(table->field[field_dec->m_field_index]);
+    	length[field_idx] = f->length_bytes;
+      } else {
+        length[field_idx] = field_dec->m_pack_length_in_rec;
+      }
+      field_idx++;
     }
-    rocksdb::SlicewithSchema table_key((const char *)m_pk_packed_tuple, 4, cond_str, type, length);
+
+    accelerator::FilterContext ctx{ condToOp(cond) , pivot};
+    rocksdb::SlicewithSchema table_key((const char *)m_pk_packed_tuple, 4, ctx, idx, type, length);
     std::string test;
     test.assign((const char*)m_pk_packed_tuple,4);
     std::cout << "table key" << test << std::endl;
-    for( uint i=1; i<size; i++) {
+    for( uint i=1; i<=size; i++) {
     std::cout << "SliceWithSchema info -- type : " << table_key.getType(i)
-    		<< " length : " << table_key.getLength(i) << std::endl;
+    		<< " length : " << table_key.getLength(i)
+			<< " type " << table_key.getOp()
+			<< " target idx " << table_key.getTarget()
+			<< " pivot " << table_key.getPivot() << std::endl;
+
     }
 //    tx->acquire_snapshot(true);
     rocksdb::Status s = tx->get_with_gpu(m_pk_descr->get_cf(), table_key, pvalues);
@@ -11804,6 +11855,27 @@ int ha_rocksdb::ha_bulk_load_from_gpu(int record_seq, uchar* buf) {
   }
 
   DBUG_RETURN(rc);
+}
+
+void ha_rocksdb::split_from_string(std::string delimiter, std::string target, std::vector<std::string> &ret) {
+  size_t pos_start=0, pos_end, delim_len = delimiter.length();
+  std::string token;
+
+  while((pos_end = target.find(delimiter, pos_start)) != std::string::npos) {
+    token = target.substr(pos_start,pos_end - pos_start);
+    ret.push_back(token);
+    pos_start = pos_end + delim_len;
+  }
+  ret.push_back(target.substr(pos_start));
+}
+
+accelerator::Operator ha_rocksdb::condToOp(std::string cond) {
+	if(!cond.compare(">")) return accelerator::GREATER;
+	else if(!cond.compare(">=")) return accelerator::GREATER_EQ;
+	else if(!cond.compare("<")) return accelerator::LESS;
+	else if(!cond.compare("<=")) return accelerator::LESS_EQ;
+	else if(!cond.compare("=")) return accelerator::EQ;
+	else return accelerator::INVALID;
 }
 
 /**
