@@ -632,7 +632,7 @@ class ha_rocksdb : public my_core::handler {
   /* GPU Accelerator */
   std::vector <rocksdb::Slice> gkeys;
   std::vector <rocksdb::Slice> gvalues;
-  std::vector <rocksdb::PinnableSlice *> pvalues;
+  std::vector <rocksdb::PinnableSlice> pvalues;
 
   int ha_bulk_load(int record_seq, uchar * buf) override;
   void split_from_string(std::string delimiter, std::string target, std::vector<std::string> &ret);

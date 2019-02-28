@@ -2533,7 +2533,7 @@ public:
 
   virtual rocksdb::Status value_filter(rocksdb::ColumnFamilyHandle *const column_family,
                               const rocksdb::SlicewithSchema &key,
-                              std::vector<rocksdb::PinnableSlice *> &values) const { rocksdb::Status s; return s;};
+                              std::vector<rocksdb::PinnableSlice> &values) const { rocksdb::Status s; return s;};
 
   virtual rocksdb::Status
   get_for_update(rocksdb::ColumnFamilyHandle *const column_family,
@@ -2908,7 +2908,7 @@ public:
 
   rocksdb::Status value_filter(rocksdb::ColumnFamilyHandle *const column_family,
                       const rocksdb::SlicewithSchema &key,
-                      std::vector<rocksdb::PinnableSlice *> &values) const override {
+                      std::vector<rocksdb::PinnableSlice> &values) const override {
     // clean PinnableSlice right begfore Get() for multiple gets per statement
     // the resources after the last Get in a statement are cleared in
     // handler::reset call
@@ -11735,9 +11735,13 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
   int rc = 0;
   stats.rows_requested++;
   int record_num=0;
+  int idx = -1;
+  long pivot = LONG_MAX;
+  std::string cond="INVALID";
   Item * item = const_cast<Item *>(pushed_cond);
   std::string cond_str(make_cond_str(item));
   std::cout << "Condition Str = " << cond_str << std::endl;
+  if(cond_str.compare("(Item*)nullptr")) {
   std::vector<std::string> conditions;
 
   /* split conditions */
@@ -11745,10 +11749,7 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
   std::vector<std::string>::iterator iter;
 
 
-  std::string field_str, cond="INVALID";
   int type;
-  int idx = -1;
-  long pivot = LONG_MAX;
 
   Field **ptr;
   Field * field;
@@ -11776,7 +11777,7 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
 	  	}
 	  }
   }
-
+  }
 
   if(record_seq == 0) {
     gkeys.clear();
