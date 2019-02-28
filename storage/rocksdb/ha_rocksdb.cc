@@ -2531,8 +2531,8 @@ public:
                               const rocksdb::Slice &key,
                               rocksdb::PinnableSlice *const value) const = 0;
 
-  virtual rocksdb::Status get_with_gpu(rocksdb::ColumnFamilyHandle *const column_family,
-                              const rocksdb::Slice &key,
+  virtual rocksdb::Status value_filter(rocksdb::ColumnFamilyHandle *const column_family,
+                              const rocksdb::SlicewithSchema &key,
                               std::vector<rocksdb::PinnableSlice *> &values) const { rocksdb::Status s; return s;};
 
   virtual rocksdb::Status
@@ -2906,15 +2906,15 @@ public:
     return m_rocksdb_tx->Get(m_read_opts, column_family, key, value);
   }
 
-  rocksdb::Status get_with_gpu(rocksdb::ColumnFamilyHandle *const column_family,
-                      const rocksdb::Slice &key,
+  rocksdb::Status value_filter(rocksdb::ColumnFamilyHandle *const column_family,
+                      const rocksdb::SlicewithSchema &key,
                       std::vector<rocksdb::PinnableSlice *> &values) const override {
     // clean PinnableSlice right begfore Get() for multiple gets per statement
     // the resources after the last Get in a statement are cleared in
     // handler::reset call
     //value->Reset();
     global_stats.queries[QUERIES_POINT].inc();
-    return m_rocksdb_tx->Get_with_GPU(m_read_opts, column_family, key, values);
+    return m_rocksdb_tx->ValueFilter(m_read_opts, column_family, key, values);
   }
 
   rocksdb::Status
@@ -11730,7 +11730,7 @@ const class Item *ha_rocksdb::cond_push(const class Item * cond) {
   DBUG_RETURN(nullptr);
 }
 
-int ha_rocksdb::ha_bulk_load_from_gpu(int record_seq, uchar* buf) {
+int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
   DBUG_ENTER_FUNC();
   int rc = 0;
   stats.rows_requested++;
@@ -11816,7 +11816,7 @@ int ha_rocksdb::ha_bulk_load_from_gpu(int record_seq, uchar* buf) {
 
     }
 //    tx->acquire_snapshot(true);
-    rocksdb::Status s = tx->get_with_gpu(m_pk_descr->get_cf(), table_key, pvalues);
+    rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key, pvalues);
 
     /* Iteration Code for implementation */
 //  for (;;) {
