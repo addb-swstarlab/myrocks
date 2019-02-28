@@ -1430,11 +1430,11 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_gpu_process)
           table->file->cond_push(cond);
 
           table->file->ha_rnd_init(1);
-          record_num = table->file->ha_bulk_load_from_gpu(0, table->record[0]);
+          record_num = table->file->ha_bulk_load(0, table->record[0]);
 
           tab->buf_record = record_num;
           for (int j=1; j < record_num + 1; j++) {
-        	table->file->ha_bulk_load_from_gpu(j, table->record[0]);
+        	table->file->ha_bulk_load(j, table->record[0]);
         	rc = tab->gpu_buffer->put_record();
           }
         }

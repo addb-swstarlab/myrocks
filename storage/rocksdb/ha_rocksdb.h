@@ -634,7 +634,7 @@ class ha_rocksdb : public my_core::handler {
   std::vector <rocksdb::Slice> gvalues;
   std::vector <rocksdb::PinnableSlice *> pvalues;
 
-  int ha_bulk_load_from_gpu(int record_seq, uchar * buf) override;
+  int ha_bulk_load(int record_seq, uchar * buf) override;
   int create_key_defs(const TABLE *const table_arg,
                       Rdb_tbl_def *const tbl_def_arg,
                       const TABLE *const old_table_arg = nullptr,
