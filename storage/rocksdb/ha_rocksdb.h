@@ -913,7 +913,7 @@ public:
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   /* GPU Accelerator */
   int convert_record_from_storage_format_gpu(const rocksdb::Slice *const key,
-                                         const rocksdb::Slice *const value,
+                                         rocksdb::PinnableSlice * value,
 										 uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
