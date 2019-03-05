@@ -4,7 +4,7 @@ MKFILE=`mktemp`
 # include rocksdb make file relative to the path of this script
 echo "include rocksdb/src.mk
 all:
-	@echo \$(LIB_SOURCES)" > $MKFILE
+	@echo \$(LIB_SOURCES) \$(CUDA_SOURCES) \$(AVX_SOURCES)" > $MKFILE
 for f in `make --makefile $MKFILE`
 do
   echo ../../rocksdb/$f
@@ -16,7 +16,7 @@ rm $MKFILE
 bv=rocksdb/util/build_version.cc
 date=$(date +%F)
 git_sha=$(pushd rocksdb >/dev/null && git rev-parse  HEAD 2>/dev/null && popd >/dev/null)
-if [ ! -f $bv ] || [ -z $git_sha ] || [ ! `grep $git_sha $bv` ]
+if [ ! -f $bv ] || [ -z $git_sha ] || [ -z "grep $git_sha $bv" ]
 then
 echo "#include \"build_version.h\"
 const char* rocksdb_build_git_sha =

@@ -6241,9 +6241,11 @@ int ha_rocksdb::convert_record_from_storage_format(
   uint16 unpack_info_len = 0;
   rocksdb::Slice unpack_slice;
 
+  std::cout<< "111" <<std::endl;
   /* If it's a TTL record, skip the 8 byte TTL value */
   const char *ttl_bytes;
   if (m_pk_descr->has_ttl()) {
+	  std::cout<< "222" <<std::endl;
     if ((ttl_bytes = reader.read(ROCKSDB_SIZEOF_TTL_RECORD))) {
       memcpy(m_ttl_bytes, ttl_bytes, ROCKSDB_SIZEOF_TTL_RECORD);
     } else {
@@ -6253,11 +6255,14 @@ int ha_rocksdb::convert_record_from_storage_format(
 
   /* Other fields are decoded from the value */
   const char *null_bytes = nullptr;
+  std::cout<< "333 " <<std::endl;
   if (m_null_bytes_in_rec && !(null_bytes = reader.read(m_null_bytes_in_rec))) {
     return HA_ERR_ROCKSDB_CORRUPT_DATA;
   }
 
   if (m_maybe_unpack_info) {
+	std::cout<< "444 "  <<std::endl;
+
     unpack_info = reader.get_current_ptr();
     if (!unpack_info || !Rdb_key_def::is_unpack_data_tag(unpack_info[0]) ||
         !reader.read(Rdb_key_def::get_unpack_header_size(unpack_info[0]))) {
@@ -6274,6 +6279,7 @@ int ha_rocksdb::convert_record_from_storage_format(
 
   int err = HA_EXIT_SUCCESS;
   if (m_key_requested) {
+	std::cout<< "555 " <<std::endl;
     err = m_pk_descr->unpack_record(table, buf, &rowkey_slice,
                                     unpack_info ? &unpack_slice : nullptr,
                                     false /* verify_checksum */);
@@ -6284,6 +6290,7 @@ int ha_rocksdb::convert_record_from_storage_format(
   }
 
   for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end(); it++) {
+	std::cout<< "666 "<<std::endl;
     const Rdb_field_encoder *const field_dec = it->m_field_enc;
     const bool decode = it->m_decode;
     const bool isNull =
@@ -6292,6 +6299,7 @@ int ha_rocksdb::convert_record_from_storage_format(
 
     Field *const field = table->field[field_dec->m_field_index];
 
+    std::cout << "skip " << it->m_skip << std::endl;
     /* Skip the bytes we need to skip */
     if (it->m_skip && !reader.read(it->m_skip)) {
       return HA_ERR_ROCKSDB_CORRUPT_DATA;
@@ -6325,9 +6333,11 @@ int ha_rocksdb::convert_record_from_storage_format(
         err = convert_blob_from_storage_format(
             (my_core::Field_blob *) field, &reader, decode);
       } else if (field_dec->m_field_type == MYSQL_TYPE_VARCHAR) {
+    	  std::cout<< "777 "  <<std::endl;
         err = convert_varchar_from_storage_format(
             (my_core::Field_varstring *) field, &reader, decode);
       } else {
+    	  std::cout<< "888 " << field_dec->m_pack_length_in_rec <<std::endl;
         err = convert_field_from_storage_format(
             field, &reader, decode, field_dec->m_pack_length_in_rec);
       }
@@ -11787,10 +11797,13 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
     DBUG_ASSERT(tx != nullptr);
 
 
-    uint size = m_decoders_vect.size();
-    uint * type = new uint[size];
-    uint * length = new uint[size];
-    uint field_idx = 0;
+    unsigned int size = m_decoders_vect.size();
+    std::cout << "size " << size << std::endl;
+//    unsigned int type[20] = {0,};
+//    unsigned int length[20] = {0,};
+    unsigned int * type = new unsigned int[size];
+    unsigned int * length = new unsigned int[size];
+    unsigned int field_idx = 0;
     for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end(); it++) {
       const Rdb_field_encoder *const field_dec = it->m_field_enc;
       type[field_idx] = typeToInt(field_dec->m_field_type);
@@ -11798,23 +11811,24 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
     	my_core::Field_varstring * f = reinterpret_cast <my_core::Field_varstring *>(table->field[field_dec->m_field_index]);
     	length[field_idx] = f->length_bytes;
       } else {
+    	std::cout << "length in bulk load " << field_dec->m_pack_length_in_rec << " field_idx " << field_idx << std::endl;
         length[field_idx] = field_dec->m_pack_length_in_rec;
+        std::cout << "length in bulk load22 " << length[field_idx] << std::endl;
       }
       field_idx++;
     }
 
-    accelerator::FilterContext ctx{ condToOp(cond) , pivot};
+    accelerator::FilterContext ctx{ condToOp(cond), pivot};
     rocksdb::SlicewithSchema table_key((const char *)m_pk_packed_tuple, 4, ctx, idx, type, length);
     std::string test;
     test.assign((const char*)m_pk_packed_tuple,4);
     std::cout << "table key" << test << std::endl;
-    for( uint i=1; i<=size; i++) {
+    for( unsigned int i=0; i<size; i++) {
     std::cout << "SliceWithSchema info -- type : " << table_key.getType(i)
     		<< " length : " << table_key.getLength(i)
 			<< " type " << table_key.getOp()
 			<< " target idx " << table_key.getTarget()
 			<< " pivot " << table_key.getPivot() << std::endl;
-
     }
 //    tx->acquire_snapshot(true);
     rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key, pvalues);
