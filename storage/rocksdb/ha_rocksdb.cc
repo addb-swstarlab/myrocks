@@ -6088,8 +6088,10 @@ int ha_rocksdb::convert_field_from_storage_format(
 }
 
 /* GPU Accelerator */
+
 int ha_rocksdb::convert_record_from_storage_format_gpu(
     const rocksdb::Slice *const key, rocksdb::PinnableSlice * value, uchar * buf) {
+
   value->PinSelf();
   Rdb_string_reader reader(value);
 
@@ -11710,7 +11712,8 @@ const char *dbug_print_item(Item *const item) {
 #endif /*DBUG_OFF*/
 
 /* GPU Accelerator */
-
+/* "make_cond_str" function makes Item tree to string
+ *  If condition is null, (Item*)nullptr is returned */
 
 const char * ha_rocksdb::make_cond_str(Item * item) {
   static char cond_buf[512];
@@ -11725,166 +11728,151 @@ const char * ha_rocksdb::make_cond_str(Item * item) {
     return "Couldn't fit into buffer";
 }
 
+/* "cond_push" function fetch conditions from myrocks optimizer to handler class */
 
 const class Item *ha_rocksdb::cond_push(const class Item * cond) {
-  DBUG_ENTER_FUNC();
-  pushed_cond = cond;
-  DBUG_RETURN(nullptr);
+    DBUG_ENTER_FUNC();
+    pushed_cond = cond;
+    DBUG_RETURN(nullptr);
 }
+
+bool ha_rocksdb::check_cond_not_null(std::string cond_str) {
+    if(cond_str.compare("(Item*)nullptr"))
+        return true;
+    return false;
+}
+
+/* "ha_bulk_load function loads chunks of value and transform to record format in myrocks by unit of record */
 
 int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
-  DBUG_ENTER_FUNC();
-  int rc = 0;
-  stats.rows_requested++;
-  //int record_num=0;
-  int idx = -1;
-  long pivot = LONG_MAX;
-  std::string cond="INVALID";
-  Item * item = const_cast<Item *>(pushed_cond);
-  std::string cond_str(make_cond_str(item));
-  std::cout << "Condition Str = " << cond_str << std::endl;
-  if(cond_str.compare("(Item*)nullptr")) {
-  std::vector<std::string> conditions;
+    DBUG_ENTER_FUNC();
+    int rc = 0;
+    int idx = -1;
+    long pivot = LONG_MAX;
+    std::string cond = "INVALID";
 
-  /* split conditions */
-  split_from_string("and", cond_str, conditions);
-  std::vector<std::string>::iterator iter;
+    Item * item = const_cast<Item *>(pushed_cond);
+    std::string cond_str(make_cond_str(item));
+    std::cout << "Condition Str = " << cond_str << std::endl;
 
+    if (check_cond_not_null(cond_str)) {
+        std::vector<std::string> conditions;
 
-  int type;
+        /* split conditions */
+        split_from_string("and", cond_str, conditions);
 
-  Field **ptr;
-  Field * field;
+        std::vector<std::string>::iterator iter;
+        int type;
+        Field **ptr;
+        Field * field;
 
-  for(iter=conditions.begin(); iter!=conditions.end(); ++iter) {
-	  std::vector<std::string> check;
-	  split_from_string(".", *iter, check);
+        for (iter = conditions.begin(); iter != conditions.end(); ++iter) {
+            std::vector<std::string> check;
+            split_from_string(".", *iter, check);
 
-	  if(check.size() > 3)
-		  continue;
-	  std::vector<std::string> ret;
-	  split_from_string(" ", check[2], ret);
+            if (check.size() > 3)
+                continue;
 
-	  for(ptr = table->field; (field=*ptr); ptr++) {
-		  std::string field_name = ret[0].substr(1, ret[0].length()-2);
- 		  if(!field_name.compare(field->field_name)) {
-			type = typeToInt(field->type());
-			idx = field->field_index;
-		  }
-	  }
-	  if(type == 3) {
-		if((pivot = atol(ret[2].substr(0, ret[0].length()-1).c_str()))){
-			cond = ret[1];
-			break;
-	  	}
-	  }
-  }
-  }
+            std::vector<std::string> ret;
+            split_from_string(" ", check[2], ret);
 
-  if(record_seq == 0) {
-    gkeys.clear();
-    gvalues.clear();
-    pvalues.clear();
-
-    Rdb_transaction *const tx = get_or_create_tx(table->in_use);
-    DBUG_ASSERT(tx != nullptr);
-
-
-    unsigned int size = m_decoders_vect.size();
-    std::cout << "size " << size << std::endl;
-//    unsigned int type[20] = {0,};
-//    unsigned int length[20] = {0,};
-    unsigned int * type = new unsigned int[size];
-    unsigned int * length = new unsigned int[size];
-    unsigned int field_idx = 0;
-    for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end(); it++) {
-      const Rdb_field_encoder *const field_dec = it->m_field_enc;
-      type[field_idx] = typeToInt(field_dec->m_field_type);
-      if(field_dec->uses_variable_len_encoding()) {
-    	my_core::Field_varstring * f = reinterpret_cast <my_core::Field_varstring *>(table->field[field_dec->m_field_index]);
-    	length[field_idx] = f->length_bytes;
-      } else {
-    	std::cout << "length in bulk load " << field_dec->m_pack_length_in_rec << " field_idx " << field_idx << std::endl;
-        length[field_idx] = field_dec->m_pack_length_in_rec;
-        std::cout << "length in bulk load22 " << length[field_idx] << std::endl;
-      }
-      field_idx++;
+            for (ptr = table->field; (field = *ptr); ptr++) {
+                std::string field_name = ret[0].substr(1, ret[0].length() - 2);
+                if (!field_name.compare(field->field_name)) {
+                    type = typeToInt(field->type());
+                    idx = field->field_index;
+                }
+            }
+            if (type == 3) { // long type
+                if ((pivot = atol(ret[2].substr(0, ret[0].length() - 1).c_str()))) {
+                    cond = ret[1];
+                    break;
+                }
+            }
+        }
     }
 
-    accelerator::FilterContext ctx{ condToOp(cond), pivot};
-    rocksdb::SlicewithSchema table_key((const char *)m_pk_packed_tuple, 4, ctx, idx, type, length);
-    std::string test;
-    test.assign((const char*)m_pk_packed_tuple,4);
-    std::cout << "table key" << test << std::endl;
-    for( unsigned int i=0; i<size; i++) {
-    std::cout << "SliceWithSchema info -- type : " << table_key.getType(i)
-    		<< " length : " << table_key.getLength(i)
-			<< " type " << table_key.getOp()
-			<< " target idx " << table_key.getTarget()
-			<< " pivot " << table_key.getPivot() << std::endl;
+    if (record_seq == 0) { // first input
+
+        gkeys.clear();
+        gvalues.clear();
+        pvalues.clear();
+
+        Rdb_transaction * const tx = get_or_create_tx(table->in_use);
+        DBUG_ASSERT(tx != nullptr);
+
+        unsigned int size = m_decoders_vect.size();
+        unsigned int * type = new unsigned int[size];
+        unsigned int * length = new unsigned int[size];
+        unsigned int field_idx = 0;
+
+        for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end();
+                it++) {
+            const Rdb_field_encoder * const field_dec = it->m_field_enc;
+
+            /* field type */
+            type[field_idx] = typeToInt(field_dec->m_field_type);
+
+            /* field length */
+            if (field_dec->uses_variable_len_encoding()) {
+                my_core::Field_varstring * f =
+                        reinterpret_cast<my_core::Field_varstring *>(table->field[field_dec->m_field_index]);
+                length[field_idx] = f->length_bytes;
+
+            } else {
+                length[field_idx] = field_dec->m_pack_length_in_rec;
+            }
+
+            field_idx++;
+        }
+
+        accelerator::FilterContext ctx { condToOp(cond), pivot };
+        rocksdb::SlicewithSchema table_key((const char *) m_pk_packed_tuple, 4,
+                ctx, idx, type, length);
+
+        rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key,
+                pvalues);
+
+        rc = pvalues.size();
+
+    } else {
+        rc = convert_record_from_storage_format_gpu(&gkeys[record_seq - 1],
+                &pvalues[record_seq - 1], buf);
     }
-//    tx->acquire_snapshot(true);
-    rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key, pvalues);
 
-    /* Iteration Code for implementation */
-//  for (;;) {
-//    if (!is_valid(m_scan_it)) {
-//      rc = HA_ERR_END_OF_FILE;
-//      break;
-//    }
-//
-//	/* check if we're out of this table */
-//    const rocksdb::Slice key = m_scan_it->key();
-//    if (!m_pk_descr->covers_key(key)) {
-//      rc = HA_ERR_END_OF_FILE;
-//      break;
-//    }
-//    gkeys.push_back(key);
-//
-//    // Use the value from the iterator
-//    rocksdb::Slice value = m_scan_it->value();
-//	m_last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-//    gvalues.push_back(value);
-////	std::cout << "Record contents : " << value.ToString(0) << std::endl;
-////	std::cout << "Before Record : " << table->record[0] << std::endl;
-//
-//	if (!rc) {
-//	  stats.rows_read++;
-//	  stats.rows_index_next++;
-//	  update_row_stats(ROWS_READ);
-//	}
-//	table->status = 0;
-//	record_num++;
-//	m_scan_it->Next();
-//  }
-    rc=pvalues.size();
-  } else {
-	  std::cout << "pvalues size " << pvalues.size() << std::endl;
-	  rc = convert_record_from_storage_format_gpu(&gkeys[record_seq - 1], &pvalues[record_seq - 1], buf);
-  }
-
-  DBUG_RETURN(rc);
+    DBUG_RETURN(rc);
 }
 
-void ha_rocksdb::split_from_string(std::string delimiter, std::string target, std::vector<std::string> &ret) {
-  size_t pos_start=0, pos_end, delim_len = delimiter.length();
-  std::string token;
+/* split_from_string function parse condition string to transfer filter information to rocksdb */
 
-  while((pos_end = target.find(delimiter, pos_start)) != std::string::npos) {
-    token = target.substr(pos_start,pos_end - pos_start);
-    ret.push_back(token);
-    pos_start = pos_end + delim_len;
-  }
-  ret.push_back(target.substr(pos_start));
+void ha_rocksdb::split_from_string(std::string delimiter, std::string target,
+        std::vector<std::string> &ret) {
+    size_t pos_start = 0, pos_end, delim_len = delimiter.length();
+    std::string token;
+
+    while ((pos_end = target.find(delimiter, pos_start)) != std::string::npos) {
+        token = target.substr(pos_start, pos_end - pos_start);
+        ret.push_back(token);
+        pos_start = pos_end + delim_len;
+    }
+    ret.push_back(target.substr(pos_start));
 }
+
+/* condToOp function transform condition string to enum type */
 
 accelerator::Operator ha_rocksdb::condToOp(std::string cond) {
-	if(!cond.compare(">")) return accelerator::GREATER;
-	else if(!cond.compare(">=")) return accelerator::GREATER_EQ;
-	else if(!cond.compare("<")) return accelerator::LESS;
-	else if(!cond.compare("<=")) return accelerator::LESS_EQ;
-	else if(!cond.compare("=")) return accelerator::EQ;
-	else return accelerator::INVALID;
+    if (!cond.compare(">"))
+        return accelerator::GREATER;
+    else if (!cond.compare(">="))
+        return accelerator::GREATER_EQ;
+    else if (!cond.compare("<"))
+        return accelerator::LESS;
+    else if (!cond.compare("<="))
+        return accelerator::LESS_EQ;
+    else if (!cond.compare("="))
+        return accelerator::EQ;
+    else
+        return accelerator::INVALID;
 }
 
 /**
@@ -11908,18 +11896,18 @@ accelerator::Operator ha_rocksdb::condToOp(std::string cond) {
     Part of condition we couldn't check (always nullptr).
 */
 
-class Item *ha_rocksdb::idx_cond_push(uint keyno, class Item *const idx_cond) {
-  DBUG_ENTER_FUNC();
+class Item *ha_rocksdb::idx_cond_push(uint keyno, class Item * const idx_cond) {
+    DBUG_ENTER_FUNC();
 
-  DBUG_ASSERT(keyno != MAX_KEY);
-  DBUG_ASSERT(idx_cond != nullptr);
+    DBUG_ASSERT(keyno != MAX_KEY);
+    DBUG_ASSERT(idx_cond != nullptr);
 
-  pushed_idx_cond = idx_cond;
-  pushed_idx_cond_keyno = keyno;
-  in_range_check_pushed_down = TRUE;
+    pushed_idx_cond = idx_cond;
+    pushed_idx_cond_keyno = keyno;
+    in_range_check_pushed_down = TRUE;
 
-  /* We will check the whole condition */
-  DBUG_RETURN(nullptr);
+    /* We will check the whole condition */
+    DBUG_RETURN(nullptr);
 }
 
 /*

@@ -911,6 +911,7 @@ public:
                                          const rocksdb::Slice *const value,
                                          uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+
   /* GPU Accelerator */
   int convert_record_from_storage_format_gpu(const rocksdb::Slice *const key,
                                          rocksdb::PinnableSlice * value,
@@ -1069,6 +1070,7 @@ public:
   const class Item *cond_push(const class Item *cond) override;
   class Item *idx_cond_push(uint keyno, class Item *const idx_cond) override;
   const char * make_cond_str(Item * const item);
+  bool check_cond_not_null(std::string cond_str);
   /*
     Default implementation from cancel_pushed_idx_cond() suits us
   */
@@ -1456,6 +1458,7 @@ private:
 
 // file name indicating RocksDB data corruption
 std::string rdb_corruption_marker_file_name();
+
 /*GPU Accelerator*/
 uint typeToInt(my_core::enum_field_types type);
 
