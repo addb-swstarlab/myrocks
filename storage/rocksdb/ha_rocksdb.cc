@@ -6091,8 +6091,6 @@ int ha_rocksdb::convert_field_from_storage_format(
 
 int ha_rocksdb::convert_record_from_storage_format_gpu(
     const rocksdb::Slice *const key, rocksdb::PinnableSlice * value, uchar * buf) {
-
-  value->PinSelf();
   Rdb_string_reader reader(value);
 
   std::cout << "Slice contents " << value->ToString(1) << std::endl;
