@@ -6093,7 +6093,7 @@ int ha_rocksdb::convert_record_from_storage_format_gpu(
     const rocksdb::Slice *const key, rocksdb::PinnableSlice * value, uchar * buf) {
   Rdb_string_reader reader(value);
 
-  std::cout << "Slice contents " << value->ToString(1) << std::endl;
+  //std::cout << "Slice contents " << value->ToString(1) << std::endl;
   /*
     Decode PK fields from the key
   */
@@ -11759,13 +11759,17 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
         /* split conditions */
         split_from_string("and", cond_str, conditions);
 
-        std::vector<std::string>::iterator iter;
+        std::vector<std::string>::iterator iter, iter2, iter3;
         int type;
         Field **ptr;
         Field * field;
 
         for (iter = conditions.begin(); iter != conditions.end(); ++iter) {
+            std::cout << "condition split " << *iter << std::endl;
             std::vector<std::string> check;
+            for(iter2 = check.begin(); iter2 != check.end(); ++iter2) {
+                std::cout << "check split = " << *iter2 << std::endl;
+            }
             split_from_string(".", *iter, check);
 
             if (check.size() > 3)
@@ -11774,16 +11778,28 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
             std::vector<std::string> ret;
             split_from_string(" ", check[2], ret);
 
+            for(iter3 = ret.begin(); iter3 != ret.end(); ++iter3) {
+                std::cout << "check split = " << *iter3 << std::endl;
+            }
+
             for (ptr = table->field; (field = *ptr); ptr++) {
                 std::string field_name = ret[0].substr(1, ret[0].length() - 2);
                 if (!field_name.compare(field->field_name)) {
                     type = typeToInt(field->type());
                     idx = field->field_index;
+                    std::cout << "type " << type << " and idx " << idx << std::endl;
                 }
             }
-            if (type == 3) { // long type
-                if ((pivot = atol(ret[2].substr(0, ret[0].length() - 1).c_str()))) {
+            if (type == 3 || type == 246) {// long type
+                int num_brk=0;
+                for(uint i=0; i<ret.size(); i++) {
+                  if(ret[2].at(ret.size() - 1 - i) == ')'){
+                      num_brk++;
+                  }
+                }
+                if ((pivot = atol(ret[2].substr(0, ret[0].length() - num_brk).c_str()))) {
                     cond = ret[1];
+                    std::cout << "pivot : " << pivot << " and cond :" << cond << std::endl;
                     break;
                 }
             }
@@ -11828,8 +11844,11 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
         rocksdb::SlicewithSchema table_key((const char *) m_pk_packed_tuple, 4,
                 ctx, idx, type, length);
 
-        rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key,
-                pvalues);
+        std::cout << "table name : " << table->alias << std::endl;
+        std::cout << "table key : " << table_key.ToString(1) << std::endl;
+
+        //rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key,
+        //        pvalues);
 
         rc = pvalues.size();
 
