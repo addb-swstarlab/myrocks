@@ -272,6 +272,9 @@ enum_nested_loop_state sub_select_op(JOIN *join, JOIN_TAB *join_tab, bool
                                         end_of_records);
 enum_nested_loop_state end_send_group(JOIN *join, JOIN_TAB *join_tab,
                                       bool end_of_records);
+/* GPU Accelerator */
+enum_nested_loop_state end_send_group_gpu(JOIN *join, JOIN_TAB *join_tab,
+                                      bool end_of_records);
 enum_nested_loop_state end_write_group(JOIN *join, JOIN_TAB *join_tab,
                                        bool end_of_records);
 enum_nested_loop_state sub_select(JOIN *join,JOIN_TAB *join_tab, bool

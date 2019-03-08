@@ -398,6 +398,9 @@ public:
   /** Exec time only: TRUE <=> current group has been sent */
   bool group_sent;
 
+  /* GPU Accelerator */
+  bool gpu_complete;
+
   JOIN(THD *thd_arg, List<Item> &fields_arg, ulonglong select_options_arg,
        select_result *result_arg)
     : keyuse(thd_arg->mem_root),
@@ -471,6 +474,7 @@ public:
     }
     set_group_rpa= false;
     group_sent= 0;
+    gpu_complete = false;
   }
 
   /// True if plan is const, ie it will return zero or one rows.

@@ -11760,7 +11760,7 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
         split_from_string("and", cond_str, conditions);
 
         std::vector<std::string>::iterator iter, iter2, iter3;
-        int type;
+        int type = -1;
         Field **ptr;
         Field * field;
 
@@ -11847,8 +11847,8 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
         std::cout << "table name : " << table->alias << std::endl;
         std::cout << "table key : " << table_key.ToString(1) << std::endl;
 
-        //rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key,
-        //        pvalues);
+        rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key,
+                pvalues);
 
         rc = pvalues.size();
 
