@@ -11745,22 +11745,22 @@ bool ha_rocksdb::check_cond_not_null(std::string cond_str) {
 int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
     DBUG_ENTER_FUNC();
     int rc = 0;
-    int idx = -1;
-    long pivot = LONG_MAX;
-    std::string cond = "INVALID";
-
-    Item * item = const_cast<Item *>(pushed_cond);
-    std::string cond_str(make_cond_str(item));
-    std::cout << "condition str = " << cond_str << std::endl;
-
-    if (check_cond_not_null(cond_str)) {
-       calculate_parm(cond_str, &pivot, &idx, &cond);
-    }
-
-    std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
 
     if (record_seq == 0) { // first input
+        int idx = -1;
+        int target = -1;
+        long pivot = LONG_MAX;
+        std::string cond = "INVALID";
 
+        Item * item = const_cast<Item *>(pushed_cond);
+        std::string cond_str(make_cond_str(item));
+        std::cout << "condition str = " << cond_str << std::endl;
+
+        if (check_cond_not_null(cond_str)) {
+           calculate_parm(cond_str, &pivot, &idx, &cond);
+        }
+
+        std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
         gkeys.clear();
         gvalues.clear();
         pvalues.clear();
@@ -11771,14 +11771,20 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
         unsigned int size = m_decoders_vect.size();
         unsigned int * type = new unsigned int[size];
         unsigned int * length = new unsigned int[size];
+        unsigned int * skip = new unsigned int[size];
         unsigned int field_idx = 0;
 
         for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end();
                 it++) {
             const Rdb_field_encoder * const field_dec = it->m_field_enc;
 
+            if (field_dec->m_field_index == idx) {
+                target = field_idx;
+            }
+
             /* field type */
             type[field_idx] = typeToInt(field_dec->m_field_type);
+            skip[field_idx] = it->m_skip;
 
             /* field length */
             if (field_dec->uses_variable_len_encoding()) {
@@ -11795,13 +11801,13 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
 
         accelerator::FilterContext ctx { condToOp(cond), pivot };
         rocksdb::SlicewithSchema table_key((const char *) m_pk_packed_tuple, 4,
-                ctx, idx, type, length);
+                ctx, target, type, length, skip);
 
         std::cout << "table name : " << table->alias << std::endl;
         std::cout << "table key : " << table_key.ToString(1) << std::endl;
 
-//        rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key,
-//                pvalues);
+        rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key,
+                pvalues);
 
         rc = pvalues.size();
 

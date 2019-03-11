@@ -477,6 +477,8 @@ bool JOIN_CACHE::alloc_buffer()
                    return true;
                   );
 
+  if(gpu_accelerated)
+      buff_size = 64 << 20;
   std::cout << "buff_size is " << buff_size << std::endl;
   buff= (uchar*) my_malloc(buff_size, MYF(0));
   return buff == NULL;
@@ -3453,10 +3455,10 @@ int GPU_BUFFER::init()
 }
 
 enum_nested_loop_state GPU_BUFFER::put_record() {
-	std::cout << "gpu put_record" << std::endl;
 	if(put_record_in_cache()) {
+	      std::cout << "buffer is full" << std::endl;
 		  buff_size = buff_size * 2;
-		  buff = (uchar *)realloc(buff, buff_size);
+		  buff = (uchar *)my_realloc(buff, buff_size, MYF(MY_WME));
 	}
 	return NESTED_LOOP_OK;
 }

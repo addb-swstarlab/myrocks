@@ -1324,9 +1324,6 @@ sub_select(JOIN *join,JOIN_TAB *join_tab,bool end_of_records)
   join_tab->table->null_row=0;
   if (end_of_records)
   {
-     std::cout<< "end_records " <<std::endl;
-//	JOIN_TAB * tmp = join_tab + 1;
-//	std::cout << "end_of_record = " << join_tab->table->alias << " and " << tmp->table->alias << std::endl;
     enum_nested_loop_state nls=
       (*join_tab->next_select)(join,join_tab+1,end_of_records);
     DBUG_RETURN(nls);
@@ -1334,7 +1331,6 @@ sub_select(JOIN *join,JOIN_TAB *join_tab,bool end_of_records)
   READ_RECORD *info= &join_tab->read_record;
 
   if (join_tab->prepare_scan()) {
-	std::cout << "prepare scan " << std::endl;
     DBUG_RETURN(NESTED_LOOP_ERROR);
   }
 
@@ -1344,7 +1340,6 @@ sub_select(JOIN *join,JOIN_TAB *join_tab,bool end_of_records)
   }
 
   join->return_tab= join_tab;
- // std::cout << "return_tab = " << join->return_tab->table->alias <<std::endl;
   join_tab->not_null_compl= true;
   join_tab->found_match= false;
 
@@ -1374,17 +1369,13 @@ sub_select(JOIN *join,JOIN_TAB *join_tab,bool end_of_records)
   bool in_first_read= true;
   while (rc == NESTED_LOOP_OK && join->return_tab >= join_tab)
   {
-	std::cout << "while in -- " << " return_tab : " << join->return_tab->table->alias
-			<< " and " << join_tab->table->alias << std::endl;
     int error;
     if (in_first_read)
     {
-      std::cout << "in_first_read " << std::endl;
       in_first_read= false;
       error= (*join_tab->read_first_record)(join_tab);
     }
     else {
-      std::cout << "read_record " << std::endl;
       error= info->read_record(info);
     }
 
@@ -1393,20 +1384,16 @@ sub_select(JOIN *join,JOIN_TAB *join_tab,bool end_of_records)
     if (error > 0 || (join->thd->is_error()))   // Fatal error
       rc= NESTED_LOOP_ERROR;
     else if (error < 0) {
-      std::cout << "err < 0 " << std::endl;
       break;
     }
     else if (join->thd->killed)			// Aborted by user
     {
-      std::cout << "killed " << std::endl;
       join->thd->send_kill_message();
       rc= NESTED_LOOP_KILLED;
     }
     else
     {
-      std::cout << "evaluate_join_record " << std::endl;
       if (join_tab->keep_current_rowid) {
-        std::cout << "keep_current_rowid " << std::endl;
         join_tab->table->file->position(join_tab->table->record[0]);
       }
       rc= evaluate_join_record(join, join_tab);
@@ -1684,7 +1671,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
   DBUG_EXECUTE("where",print_where(condition,
                                    join_tab->table->alias,
                                    QT_ORDINARY););
-  std::cout << "where : " << std::string(str_where(condition, join_tab->table->alias, QT_ORDINARY)) << std::endl;
+//  std::cout << "where : " << std::string(str_where(condition, join_tab->table->alias, QT_ORDINARY)) << std::endl;
 
   if (condition)
   {
@@ -3011,7 +2998,7 @@ static enum_nested_loop_state
 end_send(JOIN *join, JOIN_TAB *join_tab, bool end_of_records)
 {
   DBUG_ENTER("end_send");
-  std::cout << "end_send call " << std::endl;
+
    /*
     When all tables are const this function is called with jointab == NULL.
     This function shouldn't be called for the first join_tab as it needs
