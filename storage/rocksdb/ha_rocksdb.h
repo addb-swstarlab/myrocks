@@ -637,6 +637,8 @@ class ha_rocksdb : public my_core::handler {
   int ha_bulk_load(int record_seq, uchar * buf) override;
   void split_from_string(std::string delimiter, std::string target, std::vector<std::string> &ret);
   accelerator::Operator condToOp(std::string cond);
+  void calculate_parm(std::string cond_str, long * pivot,
+          int * idx, std::string * cond);
 
   int create_key_defs(const TABLE *const table_arg,
                       Rdb_tbl_def *const tbl_def_arg,

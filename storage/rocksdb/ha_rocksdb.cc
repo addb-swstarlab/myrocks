@@ -11751,60 +11751,13 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
 
     Item * item = const_cast<Item *>(pushed_cond);
     std::string cond_str(make_cond_str(item));
-    std::cout << "Condition Str = " << cond_str << std::endl;
+    std::cout << "condition str = " << cond_str << std::endl;
 
     if (check_cond_not_null(cond_str)) {
-        std::vector<std::string> conditions;
-
-        /* split conditions */
-        split_from_string("and", cond_str, conditions);
-
-        std::vector<std::string>::iterator iter, iter2, iter3;
-        int type = -1;
-        Field **ptr;
-        Field * field;
-
-        for (iter = conditions.begin(); iter != conditions.end(); ++iter) {
-            std::cout << "condition split " << *iter << std::endl;
-            std::vector<std::string> check;
-            for(iter2 = check.begin(); iter2 != check.end(); ++iter2) {
-                std::cout << "check split = " << *iter2 << std::endl;
-            }
-            split_from_string(".", *iter, check);
-
-            if (check.size() > 3)
-                continue;
-
-            std::vector<std::string> ret;
-            split_from_string(" ", check[2], ret);
-
-            for(iter3 = ret.begin(); iter3 != ret.end(); ++iter3) {
-                std::cout << "check split = " << *iter3 << std::endl;
-            }
-
-            for (ptr = table->field; (field = *ptr); ptr++) {
-                std::string field_name = ret[0].substr(1, ret[0].length() - 2);
-                if (!field_name.compare(field->field_name)) {
-                    type = typeToInt(field->type());
-                    idx = field->field_index;
-                    std::cout << "type " << type << " and idx " << idx << std::endl;
-                }
-            }
-            if (type == 3 || type == 246) {// long type
-                int num_brk=0;
-                for(uint i=0; i<ret.size(); i++) {
-                  if(ret[2].at(ret.size() - 1 - i) == ')'){
-                      num_brk++;
-                  }
-                }
-                if ((pivot = atol(ret[2].substr(0, ret[0].length() - num_brk).c_str()))) {
-                    cond = ret[1];
-                    std::cout << "pivot : " << pivot << " and cond :" << cond << std::endl;
-                    break;
-                }
-            }
-        }
+       calculate_parm(cond_str, &pivot, &idx, &cond);
     }
+
+    std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
 
     if (record_seq == 0) { // first input
 
@@ -11847,8 +11800,8 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
         std::cout << "table name : " << table->alias << std::endl;
         std::cout << "table key : " << table_key.ToString(1) << std::endl;
 
-        rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key,
-                pvalues);
+//        rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key,
+//                pvalues);
 
         rc = pvalues.size();
 
@@ -11890,6 +11843,73 @@ accelerator::Operator ha_rocksdb::condToOp(std::string cond) {
         return accelerator::EQ;
     else
         return accelerator::INVALID;
+}
+
+void ha_rocksdb::calculate_parm(std::string cond_str, long * pivot,
+        int * idx, std::string * cond) {
+
+    std::vector<std::string> conditions;
+
+    /* split conditions */
+    split_from_string("and", cond_str, conditions);
+
+    std::vector<std::string>::iterator iter, iter2, iter3;
+    int type = -1;
+    Field **ptr;
+    Field * field;
+
+    for (iter = conditions.begin(); iter != conditions.end(); ++iter) {
+        std::vector<std::string> check;
+        split_from_string(".", *iter, check);
+
+        std::vector<std::string> ret;
+        split_from_string(" ", check[2], ret);
+
+        for (ptr = table->field; (field = *ptr); ptr++) {
+            std::string field_name = ret[0].substr(1, ret[0].length() - 2);
+            if (!field_name.compare(field->field_name)) {
+                type = typeToInt(field->type());
+                *idx = field->field_index;
+            }
+        }
+        if (type == 3) { // long type
+            int num_brk = 0;
+            for (uint i = 0; i < ret.size(); i++) {
+                if (ret[2].at(ret.size() - 1 - i) == ')') {
+                    num_brk++;
+                }
+            }
+            if ((*pivot = atol(
+                    ret[2].substr(0, ret[0].length() - num_brk).c_str()))) {
+                *cond = ret[1];
+                break;
+            }
+        } else if (type == 10) { // DATE type
+            *cond = ret[1];
+            long year, month, day = 0;
+            int plus, minus = -1;
+
+            size_t pos = ret[2].find("-");
+            year = atol(ret[2].substr(pos - 4, pos - 1).c_str());
+            month = atol(ret[2].substr(pos + 1, pos + 3).c_str());
+            day = atol(ret[2].substr(pos + 4, pos + 6).c_str());
+
+            if (ret.size() > 4) { //include white space
+                plus = ret[3].compare("+");
+                minus = ret[3].compare("-");
+                long target = atol(
+                        ret[5].substr(1, ret[5].length() - 2).c_str());
+                if (ret[6].at(0) == 'y') {
+                    if (!plus)
+                        year = year + target;
+                    if (!minus)
+                        year = year - target;
+                }
+            }
+            *pivot = day + month * 32 + year * 16 * 32;
+            break;
+        }
+    }
 }
 
 /**
