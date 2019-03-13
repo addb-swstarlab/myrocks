@@ -11769,9 +11769,9 @@ bool ha_rocksdb::ha_bulk_load(int record_seq, int * val_num, uchar* buf) {
         DBUG_ASSERT(tx != nullptr);
 
         unsigned int size = m_decoders_vect.size();
-        unsigned int * type = new unsigned int[size];
-        unsigned int * length = new unsigned int[size];
-        unsigned int * skip = new unsigned int[size];
+        std::vector<uint> type(size);
+        std::vector<uint> length(size);
+        std::vector<uint> skip(size);
         unsigned int field_idx = 0;
 
         for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end();
@@ -11806,8 +11806,8 @@ bool ha_rocksdb::ha_bulk_load(int record_seq, int * val_num, uchar* buf) {
         std::cout << "table name : " << table->alias << std::endl;
         std::cout << "table key : " << table_key.ToString(1) << std::endl;
 
-        rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key,
-                pvalues);
+        rocksdb::Status s = tx->value_filter(
+            m_pk_descr->get_cf(), table_key, pvalues);
 
         *val_num = pvalues.size();
         if(s.IsTableEnd()) end_table = true;
