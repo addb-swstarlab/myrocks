@@ -3454,7 +3454,7 @@ int GPU_BUFFER::init()
   DBUG_RETURN(0);
 }
 
-bool GPU_BUFFER::put_record() {
+bool GPU_BUFFER::put_record_buff() {
 	if(put_record_in_cache()) {
             return false;
 	}

@@ -11813,11 +11813,14 @@ bool ha_rocksdb::ha_bulk_load(int record_seq, int * val_num, uchar* buf) {
         if(s.IsTableEnd()) end_table = true;
 
     } else {
-        convert_record_from_storage_format_gpu(&gkeys[record_seq - 1],
-                pvalues.back(), buf);
-        pvalues.pop_back();
+//        convert_record_from_storage_format_gpu(&gkeys[record_seq - 1],
+//                &(pvalues.back()), buf);
+         int rc = convert_record_from_storage_format_gpu(&gkeys[0],
+                &(pvalues.back()), buf);
+         pvalues.pop_back();
+         if(rc) assert(0);
     }
-    
+
     DBUG_RETURN(end_table);
 }
 

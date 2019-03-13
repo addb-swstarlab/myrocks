@@ -154,8 +154,8 @@ ENDIF()
 # Rocksdb-GPU
 IF (WITH_RUDA)
   EXECUTE_PROCESS(
-    COMMAND make build -j8
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/rocksdb/accelerator/cuda
+    COMMAND make accelerator/cuda/libruda.a -j8
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/rocksdb
   )
   FIND_LIBRARY(RUDA_LIBRARY
     NAMES ruda

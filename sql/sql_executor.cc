@@ -1545,8 +1545,8 @@ enum_nested_loop_state sub_select_gpu(JOIN *join, JOIN_TAB *join_tab,
 
             join_tab->gpu_buffer->reset_cache(true); 
             int idx = 1;
-            while (join_tab->gpu_buffer->put_record() && idx < record_num) {
-                join_tab->table->file->ha_bulk_load(idx, join_tab->table->record[0]);
+            while (((GPU_BUFFER *)join_tab->gpu_buffer)->put_record_buff() && idx < record_num) {
+                join_tab->table->file->ha_bulk_load(idx, &record_num, join_tab->table->record[0]);
                 idx++;
             }
             // reset cache for read
