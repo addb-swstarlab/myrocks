@@ -11742,11 +11742,11 @@ bool ha_rocksdb::check_cond_not_null(std::string cond_str) {
 
 /* "ha_bulk_load function loads chunks of value and transform to record format in myrocks by unit of record */
 
-int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
+bool ha_rocksdb::ha_bulk_load(int record_seq, int * val_num, uchar* buf) {
     DBUG_ENTER_FUNC();
-    int rc = 0;
+    bool end_table = false;
 
-    if (record_seq == 0) { // first input
+    if (!record_seq) { // first input
         int idx = -1;
         int target = -1;
         long pivot = LONG_MAX;
@@ -11759,11 +11759,11 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
         if (check_cond_not_null(cond_str)) {
            calculate_parm(cond_str, &pivot, &idx, &cond);
         }
-
+        
         std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
         gkeys.clear();
-        gvalues.clear();
-        pvalues.clear();
+        //gvalues.clear();
+        //pvalues.clear();
 
         Rdb_transaction * const tx = get_or_create_tx(table->in_use);
         DBUG_ASSERT(tx != nullptr);
@@ -11809,14 +11809,16 @@ int ha_rocksdb::ha_bulk_load(int record_seq, uchar* buf) {
         rocksdb::Status s = tx->value_filter(m_pk_descr->get_cf(), table_key,
                 pvalues);
 
-        rc = pvalues.size();
+        *val_num = pvalues.size();
+        if(s.IsTableEnd()) end_table = true;
 
     } else {
-        rc = convert_record_from_storage_format_gpu(&gkeys[record_seq - 1],
-                &pvalues[record_seq - 1], buf);
+        convert_record_from_storage_format_gpu(&gkeys[record_seq - 1],
+                pvalues.back(), buf);
+        pvalues.pop_back();
     }
-
-    DBUG_RETURN(rc);
+    
+    DBUG_RETURN(end_table);
 }
 
 /* split_from_string function parse condition string to transfer filter information to rocksdb */

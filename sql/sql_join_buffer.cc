@@ -3454,13 +3454,11 @@ int GPU_BUFFER::init()
   DBUG_RETURN(0);
 }
 
-enum_nested_loop_state GPU_BUFFER::put_record() {
+bool GPU_BUFFER::put_record() {
 	if(put_record_in_cache()) {
-	      std::cout << "buffer is full" << std::endl;
-		  buff_size = buff_size * 2;
-		  buff = (uchar *)my_realloc(buff, buff_size, MYF(MY_WME));
+            return false;
 	}
-	return NESTED_LOOP_OK;
+	return true;
 }
 
 //bool GPU_BUFFER::get_record()

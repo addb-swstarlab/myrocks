@@ -281,6 +281,7 @@ extern bool opt_update_log, opt_bin_log, opt_error_log;
 extern bool opt_improved_dup_key_error;
 /*GPU Accelerator*/
 extern bool gpu_accelerated;
+extern ulonglong gpu_buff_size = 0;
 extern my_bool opt_log, opt_slow_log, opt_log_raw;
 extern char* opt_gap_lock_logname;
 extern my_bool opt_allow_multiple_engines;

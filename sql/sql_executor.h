@@ -207,6 +207,7 @@ public:
   /* GPU Accelerator */
   virtual bool get_record() {return false;};
   virtual void reset_cache(bool write) {std::cout<< "reset cache" <<std::endl;};
+  virtual ulong rem_space() {return 0;};
   /**
     Internal state cleanup.
   */

@@ -2923,7 +2923,7 @@ public:
  */
  virtual void cond_pop() { return; }
  /* GPU Accelerator */
- virtual int ha_bulk_load(int record_seq, uchar* record) { return 0; };
+ virtual bool ha_bulk_load(int record_seq, int * val_num, uchar* record) { return false; };
 
  /**
    Push down an index condition to the handler.

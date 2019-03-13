@@ -555,7 +555,7 @@ public:
 
   /* Initialize the GPU BUFFER */
   int init();
-  enum_nested_loop_state put_record();
+  bool put_record();
   void calc_record_fields();
   void create_flag_fields();
   void create_remaining_fields(bool all_read_fields);
