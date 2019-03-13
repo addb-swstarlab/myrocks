@@ -151,6 +151,20 @@ IF (HAVE_ZLIB_H)
   SET(rocksdb_static_libs ${rocksdb_static_libs} ${ZLIB_LIBRARY})
 ENDIF()
 
+# Rocksdb-GPU
+IF (WITH_RUDA)
+  EXECUTE_PROCESS(
+    COMMAND make build -j8
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/rocksdb/accelerator/cuda
+  )
+  FIND_LIBRARY(RUDA_LIBRARY
+    NAMES ruda
+    HINTS ${CMAKE_SOURCE_DIR}/rocksdb/accelerator/cuda)
+  SET(rocksdb_static_libs
+    ${rocksdb_static_libs}
+    ${RUDA_LIBRARY} "-L/usr/local/cuda/lib64" "-lcudart" "-lcudadevrt")
+ENDIF()
+
 SET(rocksdb_static_libs ${rocksdb_static_libs} "-lrt" "-ldl" "-lpthread")
 
 MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE DEFAULT STATIC_ONLY
