@@ -207,7 +207,7 @@ public:
   /* GPU Accelerator */
   virtual bool get_record() {return false;};
   virtual void reset_cache(bool write) {std::cout<< "reset cache" <<std::endl;};
-  virtual ulong rem_space() {return 0;};
+
   /**
     Internal state cleanup.
   */
@@ -274,13 +274,15 @@ enum_nested_loop_state sub_select_op(JOIN *join, JOIN_TAB *join_tab, bool
 enum_nested_loop_state end_send_group(JOIN *join, JOIN_TAB *join_tab,
                                       bool end_of_records);
 /* GPU Accelerator */
-enum_nested_loop_state end_send_group_gpu(JOIN *join, JOIN_TAB *join_tab,
+enum_nested_loop_state end_send_group_accel(JOIN *join, JOIN_TAB *join_tab,
                                       bool end_of_records);
 enum_nested_loop_state end_write_group(JOIN *join, JOIN_TAB *join_tab,
                                        bool end_of_records);
 enum_nested_loop_state sub_select(JOIN *join,JOIN_TAB *join_tab, bool
                                   end_of_records);
-enum_nested_loop_state sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool
+enum_nested_loop_state sub_select_avx(JOIN *join,JOIN_TAB *join_tab, bool
+                                  end_of_records);
+enum_nested_loop_state sub_select_avxblock(JOIN *join,JOIN_TAB *join_tab, bool
                                   end_of_records);
 enum_nested_loop_state
 evaluate_join_record(JOIN *join, JOIN_TAB *join_tab, int error);

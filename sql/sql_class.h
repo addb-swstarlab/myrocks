@@ -796,8 +796,6 @@ typedef struct system_variables
   my_bool session_track_response_attributes;
 
   ulong dscp_on_socket;
-  /*GPU accelerator*/
-  //my_bool gpu_accelerated;
 } SV;
 
 

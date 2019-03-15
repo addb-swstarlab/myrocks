@@ -632,9 +632,11 @@ class ha_rocksdb : public my_core::handler {
   /* GPU Accelerator */
   std::vector <rocksdb::Slice> gkeys;
   //std::vector <rocksdb::Slice> gvalues;
+  std::vector <rocksdb::PinnableSlice> avxValues;
   std::vector <rocksdb::PinnableSlice> pvalues;
 
-  bool ha_bulk_load(int record_seq, int * val_num, uchar * buf) override;
+  int ha_bulk_load_avx(int record_seq, uchar * buf) override;
+  bool ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_num, uchar * buf) override;
   void split_from_string(std::string delimiter, std::string target, std::vector<std::string> &ret);
   accelerator::Operator condToOp(std::string cond);
   void calculate_parm(std::string cond_str, long * pivot,

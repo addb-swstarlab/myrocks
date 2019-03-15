@@ -439,7 +439,6 @@ public:
   /* Add a record into join buffer and call join_records() if it's full */
   virtual enum_nested_loop_state put_record()
   {
-	std::cout << "join_cache put _record" << std::endl;
     if (put_record_in_cache())
       return join_records(false);
     return NESTED_LOOP_OK;
@@ -555,7 +554,7 @@ public:
 
   /* Initialize the GPU BUFFER */
   int init();
-  bool put_record_buff();
+  bool put_record_buf();
   void calc_record_fields();
   void create_flag_fields();
   void create_remaining_fields(bool all_read_fields);

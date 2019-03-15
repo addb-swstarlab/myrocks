@@ -479,6 +479,12 @@ bool opt_improved_dup_key_error= 0;
 /*GPU accelerator*/
 bool gpu_accelerated = 0;
 ulonglong gpu_buff_size = 0;
+ulong accelerated_mode;
+const char *accelerated_mode_names[]=
+{"OFF", "AVX", "AVX_BLOCK", "GPU", NullS};
+TYPELIB accelerated_mode_typelib=
+{ array_elements(accelerated_mode_names) - 1, "", accelerated_mode_names, NULL };
+
 bool opt_error_log= IF_WIN(1,0);
 bool opt_disable_networking=0, opt_skip_show_db=0;
 bool opt_skip_name_resolve=0;

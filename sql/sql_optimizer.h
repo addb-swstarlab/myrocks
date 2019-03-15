@@ -467,9 +467,11 @@ public:
     no_const_tables= FALSE;
     /* can help debugging (makes smaller test cases): */
     DBUG_EXECUTE_IF("no_const_tables",no_const_tables= TRUE;);
-    if(gpu_accelerated) {
-      first_select = sub_select_gpu;
-    } else {
+    if(accelerated_mode == ACCEL_MODE_AVX) {
+      first_select= sub_select_avx;
+    } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK) {
+      first_select= sub_select_avxblock;
+    } else if (accelerated_mode == ACCEL_MODE_OFF) {
       first_select= sub_select;
     }
     set_group_rpa= false;

@@ -6138,4 +6138,11 @@ static Sys_var_ulonglong Sys_gpu_buff_size(
        "gpu buff size",
        "Max size of the gpu buffer",
        GLOBAL_VAR(gpu_buff_size), CMD_LINE(OPT_ARG),
-       VALID_RANGE(0, ULONGLONG_MAX), DEFAULT(1 << 10), BLOCK_SIZE(1));
+       VALID_RANGE(0, ULONGLONG_MAX), DEFAULT(64 << 20), BLOCK_SIZE(1));
+
+static Sys_var_enum Sys_accelerated_mode(
+       "accel_mode",
+       "AVX, AVX Block, GPU, OFF ",
+       GLOBAL_VAR(accelerated_mode), CMD_LINE(REQUIRED_ARG),
+       accelerated_mode_names, DEFAULT(ACCEL_MODE_OFF),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG);

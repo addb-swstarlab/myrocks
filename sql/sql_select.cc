@@ -2433,12 +2433,10 @@ static bool setup_join_buffering(JOIN_TAB *tab, JOIN *join,
   const uint tableno= tab - join->join_tab;
   const uint tab_sj_strategy= tab->get_sj_strategy();
 
-  if(gpu_accelerated){
+  if(accelerated_mode != ACCEL_MODE_OFF){
   /* GPU Accelerator */
-  std::cout << "gpu initialize " << std::endl;
-
-  tab->gpu_buffer = new GPU_BUFFER(join, tab, NULL);
-  tab->gpu_buffer->init();
+    tab->gpu_buffer = new GPU_BUFFER(join, tab, NULL);
+    tab->gpu_buffer->init();
   }
 
   bool use_bka_unique= false;
@@ -2891,8 +2889,12 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
       if (setup_join_buffering(tab, join, options, no_jbuf_after,
                                &icp_other_tables_ok))
         DBUG_RETURN(true);
-      if (gpu_accelerated) {
-    	tab[-1].next_select=sub_select_gpu;
+      
+       if ((accelerated_mode == ACCEL_MODE_AVX) && strcmp(table->file->table_type(),"MEMORY")) {
+        std::cout << "tbl type : " << table->file->table_type() << std::endl;   
+    	tab[-1].next_select=sub_select_avx;
+      } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK && strcmp(table->file->table_type(), "MEMORY")) {
+        tab[-1].next_select=sub_select_avxblock;
       } else if (tab->use_join_cache != JOIN_CACHE::ALG_NONE) {
         tab[-1].next_select=sub_select_op;
       }

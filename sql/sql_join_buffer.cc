@@ -477,8 +477,11 @@ bool JOIN_CACHE::alloc_buffer()
                    return true;
                   );
 
-  if(gpu_accelerated)
-      buff_size = 64 << 20;
+  if(accelerated_mode == ACCEL_MODE_AVX)
+      buff_size = gpu_buff_size;
+  if(accelerated_mode == ACCEL_MODE_AVX_BLOCK)
+      buff_size = 32 << 10;
+      //buff_size = 64 << 20;
   std::cout << "buff_size is " << buff_size << std::endl;
   buff= (uchar*) my_malloc(buff_size, MYF(0));
   return buff == NULL;
@@ -3454,11 +3457,11 @@ int GPU_BUFFER::init()
   DBUG_RETURN(0);
 }
 
-bool GPU_BUFFER::put_record_buff() {
+bool GPU_BUFFER::put_record_buf() {
 	if(put_record_in_cache()) {
-            return false;
+            return true;
 	}
-	return true;
+	return false;
 }
 
 //bool GPU_BUFFER::get_record()

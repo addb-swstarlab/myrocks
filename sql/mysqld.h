@@ -282,6 +282,10 @@ extern bool opt_improved_dup_key_error;
 /*GPU Accelerator*/
 extern bool gpu_accelerated;
 extern ulonglong gpu_buff_size;
+extern ulong accelerated_mode;
+extern const char *accelerated_mode_names[];
+extern TYPELIB accelerated_mode_typelib;
+
 extern my_bool opt_log, opt_slow_log, opt_log_raw;
 extern char* opt_gap_lock_logname;
 extern my_bool opt_allow_multiple_engines;
@@ -953,6 +957,14 @@ enum enum_slave_gtid_info
   SLAVE_GTID_INFO_OFF= 0,
   SLAVE_GTID_INFO_ON= 1,
   SLAVE_GTID_INFO_OPTIMIZED= 2
+};
+
+enum enum_accelerated_mode
+{
+    ACCEL_MODE_OFF = 0,
+    ACCEL_MODE_AVX = 1,
+    ACCEL_MODE_AVX_BLOCK = 2,
+    ACCEL_MODE_GPU = 3
 };
 
 extern ulong gtid_mode;
