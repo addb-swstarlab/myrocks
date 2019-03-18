@@ -11965,13 +11965,15 @@ void ha_rocksdb::calculate_parm(std::string cond_str, long * pivot,
         }
         if (type == 3) { // long type
             int num_brk = 0;
-            for (uint i = 0; i < ret.size(); i++) {
-                if (ret[2].at(ret.size() - 1 - i) == ')') {
-                    num_brk++;
-                }
+            for (int i = ret[2].length() - 1; i >= 0; i--) {
+              if (ret[2].at(i) == ')') {
+                num_brk++;
+              } else {
+                break;
+              }
             }
             if ((*pivot = atol(
-                    ret[2].substr(0, ret[0].length() - num_brk).c_str()))) {
+                    ret[2].substr(0, ret[2].length() - num_brk).c_str()))) {
                 *cond = ret[1];
                 break;
             }
