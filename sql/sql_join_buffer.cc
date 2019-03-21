@@ -476,12 +476,15 @@ bool JOIN_CACHE::alloc_buffer()
                    DBUG_SET("-d,jb_alloc_fail");
                    return true;
                   );
+  if (accelerated_mode == ACCEL_MODE_AVX_BLOCK) {
+    buff_size = 32 << 10;
+    //buff_size = 64 << 20;
+  } else if (accelerated_mode == ACCEL_MODE_AVX) {
+    buff_size = gpu_buff_size;
+  } else if (accelerated_mode == ACCEL_MODE_GPU) {
+    buff_size = gpu_buff_size;
+  }
 
-  if(accelerated_mode == ACCEL_MODE_AVX)
-      buff_size = gpu_buff_size;
-  if(accelerated_mode == ACCEL_MODE_AVX_BLOCK)
-      buff_size = 32 << 10;
-      //buff_size = 64 << 20;
   std::cout << "buff_size is " << buff_size << std::endl;
   buff= (uchar*) my_malloc(buff_size, MYF(0));
   return buff == NULL;

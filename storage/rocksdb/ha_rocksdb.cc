@@ -49,6 +49,7 @@
 #undef CACHE_LINE_SIZE
 
 /* RocksDB includes */
+#include "accelerator/common.h"
 #include "monitoring/histogram.h"
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/env.h"
@@ -2914,7 +2915,15 @@ public:
     // handler::reset call
     //value->Reset();
     global_stats.queries[QUERIES_POINT].inc();
-    return m_rocksdb_tx->ValueFilter(m_read_opts, column_family, key, values, join_idx);
+    rocksdb::ReadOptions vf_read_opts = m_read_opts;
+    if (accelerated_mode == ACCEL_MODE_AVX) {
+      vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::AVX;
+    } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK) {
+      vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::AVX_BLOCK;
+    } else if (accelerated_mode == ACCEL_MODE_GPU) {
+      vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::GPU;
+    }
+    return m_rocksdb_tx->ValueFilter(vf_read_opts, column_family, key, values, join_idx);
   }
 
   rocksdb::Status
@@ -11902,6 +11911,83 @@ bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_n
     }
 
     DBUG_RETURN(end_table);
+}
+
+int ha_rocksdb::ha_bulk_load_gpu(int record_seq, uchar* buf) {
+    DBUG_ENTER_FUNC();
+    int rc = 0;
+    int join_idx = -1;
+    std::cout << "ha_bulk_load_gpu call " << std::endl;
+
+    // Non-first input case
+    if (record_seq != 0) {
+      rc = convert_record_from_storage_format_gpu(
+          &gkeys[record_seq - 1], &avxValues[record_seq - 1], buf);
+      DBUG_RETURN(rc);
+    }
+
+    // first input case
+    int idx = -1;
+    int target = -1;
+    long pivot = LONG_MAX;
+    std::string cond = "INVALID";
+
+    Item * item = const_cast<Item *>(pushed_cond);
+    std::string cond_str(make_cond_str(item));
+    std::cout << "condition str = " << cond_str << std::endl;
+
+    if (check_cond_not_null(cond_str)) {
+        calculate_parm(cond_str, &pivot, &idx, &cond);
+    }
+
+    std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
+    gkeys.clear();
+    avxValues.clear();
+
+    Rdb_transaction * const tx = get_or_create_tx(table->in_use);
+    DBUG_ASSERT(tx != nullptr);
+
+    unsigned int size = m_decoders_vect.size();
+    std::vector<uint> type(size);
+    std::vector<uint> length(size);
+    std::vector<uint> skip(size);
+
+    for (size_t i = 0; i < m_decoders_vect.size(); ++i) {
+      myrocks::ha_rocksdb::READ_FIELD &field = m_decoders_vect[i];
+      const Rdb_field_encoder * const field_dec = field.m_field_enc;
+
+      if (field_dec->m_field_index == idx) {
+        target = i;
+      }
+
+      /* field type */
+      type[i] = typeToInt(field_dec->m_field_type);
+      skip[i] = field.m_skip;
+
+      /* field length */
+      if (field_dec->uses_variable_len_encoding()) {
+        my_core::Field_varstring *f =
+                reinterpret_cast<my_core::Field_varstring *>(table->field[field_dec->m_field_index]);
+        length[i] = f->length_bytes;
+      } else {
+        length[i] = field_dec->m_pack_length_in_rec;
+      }
+    }
+
+    accelerator::FilterContext ctx { condToOp(cond), pivot };
+    rocksdb::SlicewithSchema table_key(
+        (const char *) m_pk_packed_tuple, 4, ctx, target, type, length, skip);
+
+    std::cout << "table name : " << table->alias << std::endl;
+    std::cout << "table key : " << table_key.ToString(1) << std::endl;
+
+    rocksdb::Status s = tx->value_filter(
+        m_pk_descr->get_cf(), table_key, avxValues, join_idx);
+
+    std::cout << "value size = " << avxValues.size() << std::endl;
+    rc = avxValues.size();
+
+    DBUG_RETURN(rc);
 }
 
 /* split_from_string function parse condition string to transfer filter information to rocksdb */

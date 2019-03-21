@@ -2889,12 +2889,14 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
       if (setup_join_buffering(tab, join, options, no_jbuf_after,
                                &icp_other_tables_ok))
         DBUG_RETURN(true);
-      
-       if ((accelerated_mode == ACCEL_MODE_AVX) && strcmp(table->file->table_type(),"MEMORY")) {
+
+      if ((accelerated_mode == ACCEL_MODE_AVX) && strcmp(table->file->table_type(),"MEMORY")) {
         std::cout << "tbl type : " << table->file->table_type() << std::endl;   
-    	tab[-1].next_select=sub_select_avx;
+    	  tab[-1].next_select=sub_select_avx;
       } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK && strcmp(table->file->table_type(), "MEMORY")) {
         tab[-1].next_select=sub_select_avxblock;
+      } else if (accelerated_mode == ACCEL_MODE_GPU && strcmp(table->file->table_type(), "MEMORY")) {
+        tab[-1].next_select=sub_select_gpu;
       } else if (tab->use_join_cache != JOIN_CACHE::ALG_NONE) {
         tab[-1].next_select=sub_select_op;
       }
