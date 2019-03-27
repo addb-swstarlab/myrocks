@@ -2923,9 +2923,14 @@ public:
  */
  virtual void cond_pop() { return; }
  /* GPU Accelerator */
- virtual int ha_bulk_load_avx(int record_seq, uchar* record) { return false; };
+ virtual int ha_bulk_load_avx(int record_seq, uchar* record) { return 0; };
  virtual bool ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_num, uchar* record) { return false; };
- virtual int ha_bulk_load_gpu(int record_seq, uchar* record) { return false; };
+ virtual int ha_bulk_load_gpu(int record_seq, uchar* record) { return 0; };
+ virtual int ha_bulk_load_gpuasync(uint table_num, std::vector<std::string> tbl_keys, std::vector<std::string> conds, std::vector<long> pivots,
+         std::vector<int> targets, std::vector<uint> *types, std::vector<uint> *lengths, std::vector<uint> *skips) { return 0; };
+ virtual std::string ha_return_key(std::string * _cond, long * _pivot, int * _target, std::vector<uint> * _type,
+         std::vector<uint> * _length, std::vector<uint> * _skip) { return "INVALID"; }
+ virtual int ha_convert_record(uchar* record) { return false; }
 
  /**
    Push down an index condition to the handler.

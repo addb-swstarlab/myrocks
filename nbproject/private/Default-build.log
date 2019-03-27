@@ -1,0 +1,713 @@
+-- Running cmake version 2.8.12.2
+-- MySQL 5.6.35
+-- Packaging as: mysql-5.6.35-Linux-x86_64
+-- HAVE_VISIBILITY_HIDDEN
+-- ZSTD_INCLUDE_DIR /usr/local/include
+-- ZSTD_LIBRARY /usr/local/lib/libzstd.so.1
+-- OPENSSL_INCLUDE_DIR = /usr/include
+-- OPENSSL_LIBRARY = /usr/lib64/libssl.so
+-- CRYPTO_LIBRARY = /usr/lib64/libcrypto.so
+-- OPENSSL_MAJOR_VERSION = 1
+-- SSL_LIBRARIES = /usr/lib64/libssl.so;/usr/lib64/libcrypto.so;dl
+-- Using cmake version 2.8.12.2
+-- Not building NDB
+-- Library fbmysqlclient depends on OSLIBS -lpthread;/usr/local/lib/libzstd.so.1;m;rt;/usr/lib64/libssl.so;/usr/lib64/libcrypto.so;dl
+-- Googletest was not found. gtest-based unit tests will be disabled. You can run cmake . -DENABLE_DOWNLOADS=1 to automatically download and build required components from source.
+-- If you are inside a firewall, you may need to use an https proxy: export https_proxy=http://example.com:80
+-- Library mysqlserver depends on OSLIBS -lpthread;/usr/local/lib/libzstd.so.1;m;rt;/usr/lib64/libssl.so;/usr/lib64/libcrypto.so;dl;crypt;aio;numa;-lrt;-ldl
+-- CMAKE_BUILD_TYPE: RelWithDebInfo
+-- COMPILE_DEFINITIONS: HAVE_CONFIG_H;ZSTD;HAVE_ZSTD_COMPRESS
+-- CMAKE_C_FLAGS:  -Wall -Wextra -Wformat-security -Wwrite-strings -std=c99
+-- CMAKE_CXX_FLAGS:  -Wall -Wextra -Wformat-security -Woverloaded-virtual -Wno-unused-parameter -std=c++11
+-- CMAKE_C_FLAGS_RELWITHDEBINFO: -O3 -g -fabi-version=2 -fno-omit-frame-pointer -fno-strict-aliasing -DDBUG_OFF
+-- CMAKE_CXX_FLAGS_RELWITHDEBINFO: -O3 -g -fabi-version=2 -fno-omit-frame-pointer -fno-strict-aliasing -DDBUG_OFF
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/wonki/git/myrocks
+Scanning dependencies of target INFO_BIN
+[  0%] Built target INFO_BIN
+Scanning dependencies of target INFO_SRC
+[  0%] Built target INFO_SRC
+Scanning dependencies of target abi_check
+[  0%] Built target abi_check
+Scanning dependencies of target zlib
+[  0%] Building C object zlib/CMakeFiles/zlib.dir/adler32.c.o
+[  0%] Building C object zlib/CMakeFiles/zlib.dir/compress.c.o
+[  0%] Building C object zlib/CMakeFiles/zlib.dir/crc32.c.o
+[  0%] Building C object zlib/CMakeFiles/zlib.dir/deflate.c.o
+[  0%] Building C object zlib/CMakeFiles/zlib.dir/gzio.c.o
+[  0%] Building C object zlib/CMakeFiles/zlib.dir/infback.c.o
+[  0%] Building C object zlib/CMakeFiles/zlib.dir/inffast.c.o
+[  0%] Building C object zlib/CMakeFiles/zlib.dir/inflate.c.o
+[  0%] Building C object zlib/CMakeFiles/zlib.dir/inftrees.c.o
+[  0%] Building C object zlib/CMakeFiles/zlib.dir/trees.c.o
+[  0%] Building C object zlib/CMakeFiles/zlib.dir/uncompr.c.o
+[  1%] Building C object zlib/CMakeFiles/zlib.dir/zutil.c.o
+Linking C static library libzlib.a
+[  1%] Built target zlib
+Scanning dependencies of target strings
+[  1%] Building C object strings/CMakeFiles/strings.dir/bchange.c.o
+[  1%] Building C object strings/CMakeFiles/strings.dir/bmove_upp.c.o
+[  1%] Building C object strings/CMakeFiles/strings.dir/ctype-big5.c.o
+[  1%] Building C object strings/CMakeFiles/strings.dir/ctype-bin.c.o
+[  1%] Building C object strings/CMakeFiles/strings.dir/ctype-cp932.c.o
+[  1%] Building C object strings/CMakeFiles/strings.dir/ctype-czech.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-euc_kr.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-eucjpms.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-extra.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-gb2312.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-gbk.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-latin1.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-mb.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-simple.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-sjis.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-tis620.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-uca.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-ucs2.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-ujis.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-utf8.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype-win1250ch.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/ctype.c.o
+[  2%] Building C object strings/CMakeFiles/strings.dir/decimal.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/dtoa.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/int2str.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/is_prefix.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/llstr.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/longlong2str.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/my_strtoll10.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/my_vsnprintf.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/str2int.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/str_alloc.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/strcend.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/strend.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/strfill.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/strmake.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/strmov.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/strnmov.c.o
+[  3%] Building C object strings/CMakeFiles/strings.dir/strxmov.c.o
+[  4%] Building C object strings/CMakeFiles/strings.dir/strxnmov.c.o
+[  4%] Building C object strings/CMakeFiles/strings.dir/xml.c.o
+[  4%] Building C object strings/CMakeFiles/strings.dir/my_strchr.c.o
+[  4%] Building C object strings/CMakeFiles/strings.dir/strcont.c.o
+[  4%] Building C object strings/CMakeFiles/strings.dir/strappend.c.o
+Linking C static library libstrings.a
+[  4%] Built target strings
+Scanning dependencies of target gen_dtrace_header
+[  4%] Generating include/probes_mysql_dtrace.h, include/probes_mysql_nodtrace.h
+[  4%] Built target gen_dtrace_header
+Scanning dependencies of target mysys
+[  4%] Building C object mysys/CMakeFiles/mysys.dir/array.c.o
+[  4%] Building C object mysys/CMakeFiles/mysys.dir/charset-def.c.o
+[  4%] Building C object mysys/CMakeFiles/mysys.dir/charset.c.o
+[  4%] Building C object mysys/CMakeFiles/mysys.dir/checksum.c.o
+[  4%] Building C object mysys/CMakeFiles/mysys.dir/errors.c.o
+[  4%] Building C object mysys/CMakeFiles/mysys.dir/hash.c.o
+[  4%] Building C object mysys/CMakeFiles/mysys.dir/list.c.o
+[  4%] Building C object mysys/CMakeFiles/mysys.dir/mf_cache.c.o
+[  4%] Building C object mysys/CMakeFiles/mysys.dir/mf_dirname.c.o
+[  4%] Building C object mysys/CMakeFiles/mysys.dir/mf_fn_ext.c.o
+[  4%] Building C object mysys/CMakeFiles/mysys.dir/mf_format.c.o
+[  4%] Building C object mysys/CMakeFiles/mysys.dir/mf_getdate.c.o
+[  4%] Building C object mysys/CMakeFiles/mysys.dir/mf_iocache.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_iocache2.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_keycache.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_keycaches.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_loadpath.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_pack.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_path.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_qsort.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_qsort2.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_radix.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_same.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_sort.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_soundex.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_arr_appstr.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_tempdir.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_tempfile.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_unixpath.c.o
+[  5%] Building C object mysys/CMakeFiles/mysys.dir/mf_wcomp.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/mulalloc.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_access.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_alloc.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_bit.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_bitmap.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_chsize.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_compress.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_copy.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_create.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_delete.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_div.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_error.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_file.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_fopen.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_fstream.c.o
+[  6%] Building C object mysys/CMakeFiles/mysys.dir/my_gethwaddr.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_getsystime.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_getwd.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_compare.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_init.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_lib.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_lock.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_malloc.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_mess.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_mkdir.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_mmap.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_once.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_open.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_pread.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_pthread.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_quick.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_read.c.o
+[  7%] Building C object mysys/CMakeFiles/mysys.dir/my_redel.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/my_rename.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/my_seek.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/my_sleep.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/my_static.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/my_symlink.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/my_symlink2.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/my_sync.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/my_thr_init.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/my_write.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/ptr_cmp.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/queues.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/stacktrace.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/string.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/thr_alarm.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/thr_lock.c.o
+[  8%] Building C object mysys/CMakeFiles/mysys.dir/thr_mutex.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/thr_rwlock.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/tree.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/typelib.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/base64.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/my_memmem.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/my_getpagesize.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/lf_alloc-pin.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/lf_dynarray.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/lf_hash.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/my_atomic.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/my_getncpus.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/my_rdtsc.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/waiting_threads.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/psi_noop.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/my_alarm.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/posix_timers.c.o
+[  9%] Building C object mysys/CMakeFiles/mysys.dir/my_largepage.c.o
+[ 10%] Building C object mysys/CMakeFiles/mysys.dir/my_lockmem.c.o
+Linking C static library libmysys.a
+[ 10%] Built target mysys
+Scanning dependencies of target dbug
+[ 10%] Building C object dbug/CMakeFiles/dbug.dir/dbug.c.o
+Linking C static library libdbug.a
+[ 10%] Built target dbug
+Scanning dependencies of target mysys_ssl
+[ 10%] Building CXX object mysys_ssl/CMakeFiles/mysys_ssl.dir/crypt_genhash_impl.cc.o
+[ 10%] Building CXX object mysys_ssl/CMakeFiles/mysys_ssl.dir/my_default.cc.o
+[ 10%] Building CXX object mysys_ssl/CMakeFiles/mysys_ssl.dir/my_getopt.cc.o
+[ 10%] Building CXX object mysys_ssl/CMakeFiles/mysys_ssl.dir/my_aes.cc.o
+[ 10%] Building CXX object mysys_ssl/CMakeFiles/mysys_ssl.dir/my_sha1.cc.o
+[ 10%] Building CXX object mysys_ssl/CMakeFiles/mysys_ssl.dir/my_sha2.cc.o
+[ 10%] Building CXX object mysys_ssl/CMakeFiles/mysys_ssl.dir/my_md5.cc.o
+[ 10%] Building CXX object mysys_ssl/CMakeFiles/mysys_ssl.dir/my_rnd.cc.o
+[ 10%] Building CXX object mysys_ssl/CMakeFiles/mysys_ssl.dir/my_murmur3.cc.o
+[ 10%] Building CXX object mysys_ssl/CMakeFiles/mysys_ssl.dir/my_aes_openssl.cc.o
+Linking CXX static library libmysys_ssl.a
+[ 10%] Built target mysys_ssl
+Scanning dependencies of target comp_err
+[ 11%] Building C object extra/CMakeFiles/comp_err.dir/comp_err.c.o
+Linking CXX executable comp_err
+[ 11%] Built target comp_err
+[ 11%] Generating ../include/mysqld_error.h, ../sql/share/english/errmsg.sys
+[ 11%] Built target GenError
+Scanning dependencies of target innobase
+[ 11%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/api/api0api.cc.o
+[ 11%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/api/api0misc.cc.o
+[ 11%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/btr/btr0btr.cc.o
+[ 11%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/btr/btr0cur.cc.o
+[ 11%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/btr/btr0defragment.cc.o
+[ 11%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/btr/btr0pcur.cc.o
+[ 11%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/btr/btr0sea.cc.o
+[ 11%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/buf/buf0buddy.cc.o
+[ 11%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/buf/buf0buf.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/buf/buf0dblwr.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/buf/buf0checksum.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/buf/buf0dump.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/buf/buf0flu.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/buf/buf0lru.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/buf/buf0rea.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/data/data0data.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/data/data0type.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/dict/dict0boot.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/dict/dict0crea.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/dict/dict0dict.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/dict/dict0load.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/dict/dict0mem.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/dict/dict0stats.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/dict/dict0stats_bg.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/dyn/dyn0dyn.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/eval/eval0eval.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/eval/eval0proc.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/fil/fil0fil.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/fsp/fsp0fsp.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/fut/fut0fut.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/fut/fut0lst.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ha/ha0ha.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ha/ha0storage.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ha/hash0hash.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/fts/fts0fts.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/fts/fts0ast.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/fts/fts0blex.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/fts/fts0config.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/fts/fts0opt.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/fts/fts0pars.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/fts/fts0que.cc.o
+[  0%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/fts/fts0sql.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/fts/fts0tlex.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/handler/ha_innodb.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/handler/handler0alter.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/handler/i_s.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ibuf/ibuf0ibuf.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/lock/lock0iter.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/lock/lock0lock.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/lock/lock0wait.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/log/log0log.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/log/log0recv.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/mach/mach0data.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/mem/mem0mem.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/mem/mem0pool.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/mtr/mtr0log.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/mtr/mtr0mtr.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/os/os0file.cc.o
+[ 12%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/os/os0proc.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/os/os0sync.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/os/os0thread.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/page/page0cur.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/page/page0page.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/page/page0zip.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/pars/lexyy.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/pars/pars0grm.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/pars/pars0opt.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/pars/pars0pars.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/pars/pars0sym.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/que/que0que.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/read/read0read.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/rem/rem0cmp.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/rem/rem0rec.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0ext.cc.o
+[ 13%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0ftsort.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0import.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0ins.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0merge.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0mysql.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0log.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0purge.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0row.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0sel.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0uins.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0umod.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0undo.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0upd.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0quiesce.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/row/row0vers.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/srv/srv0conc.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/srv/srv0mon.cc.o
+[ 14%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/srv/srv0srv.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/srv/srv0start.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/sync/sync0arr.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/sync/sync0rw.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/sync/sync0sync.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/trx/trx0i_s.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/trx/trx0purge.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/trx/trx0rec.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/trx/trx0roll.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/trx/trx0rseg.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/trx/trx0sys.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/trx/trx0trx.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/trx/trx0undo.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/usr/usr0sess.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ut/ut0bh.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ut/ut0byte.cc.o
+[ 15%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ut/ut0crc32.cc.o
+[ 16%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ut/ut0dbg.cc.o
+[ 16%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ut/ut0list.cc.o
+[ 16%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ut/ut0mem.cc.o
+[ 16%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ut/ut0rbt.cc.o
+[ 16%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ut/ut0rnd.cc.o
+[ 16%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ut/ut0ut.cc.o
+[ 16%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ut/ut0vec.cc.o
+[ 16%] Building CXX object storage/innobase/CMakeFiles/innobase.dir/ut/ut0wqueue.cc.o
+[ 16%] Building C object storage/innobase/CMakeFiles/innobase.dir/zlib_embedded/adler32.c.o
+[ 16%] Building C object storage/innobase/CMakeFiles/innobase.dir/zlib_embedded/compress.c.o
+[ 16%] Building C object storage/innobase/CMakeFiles/innobase.dir/zlib_embedded/crc32.c.o
+[ 16%] Building C object storage/innobase/CMakeFiles/innobase.dir/zlib_embedded/deflate.c.o
+[ 16%] Building C object storage/innobase/CMakeFiles/innobase.dir/zlib_embedded/infback.c.o
+[ 16%] Building C object storage/innobase/CMakeFiles/innobase.dir/zlib_embedded/inffast.c.o
+[ 16%] Building C object storage/innobase/CMakeFiles/innobase.dir/zlib_embedded/inflate.c.o
+[ 16%] Building C object storage/innobase/CMakeFiles/innobase.dir/zlib_embedded/inftrees.c.o
+[ 16%] Building C object storage/innobase/CMakeFiles/innobase.dir/zlib_embedded/trees.c.o
+[ 17%] Building C object storage/innobase/CMakeFiles/innobase.dir/zlib_embedded/zutil.c.o
+Linking CXX static library libinnobase.a
+[ 19%] Built target innobase
+Scanning dependencies of target innobase_embedded
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/api/api0api.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/api/api0misc.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/btr/btr0btr.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/btr/btr0cur.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/btr/btr0defragment.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/btr/btr0pcur.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/btr/btr0sea.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/buf/buf0buddy.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/buf/buf0buf.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/buf/buf0dblwr.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/buf/buf0checksum.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/buf/buf0dump.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/buf/buf0flu.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/buf/buf0lru.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/buf/buf0rea.cc.o
+[ 19%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/data/data0data.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/data/data0type.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/dict/dict0boot.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/dict/dict0crea.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/dict/dict0dict.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/dict/dict0load.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/dict/dict0mem.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/dict/dict0stats.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/dict/dict0stats_bg.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/dyn/dyn0dyn.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/eval/eval0eval.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/eval/eval0proc.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/fil/fil0fil.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/fsp/fsp0fsp.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/fut/fut0fut.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/fut/fut0lst.cc.o
+[ 20%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ha/ha0ha.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ha/ha0storage.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ha/hash0hash.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/fts/fts0fts.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/fts/fts0ast.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/fts/fts0blex.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/fts/fts0config.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/fts/fts0opt.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/fts/fts0pars.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/fts/fts0que.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/fts/fts0sql.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/fts/fts0tlex.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/handler/ha_innodb.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/handler/handler0alter.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/handler/i_s.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ibuf/ibuf0ibuf.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/lock/lock0iter.cc.o
+[ 21%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/lock/lock0lock.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/lock/lock0wait.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/log/log0log.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/log/log0recv.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/mach/mach0data.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/mem/mem0mem.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/mem/mem0pool.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/mtr/mtr0log.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/mtr/mtr0mtr.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/os/os0file.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/os/os0proc.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/os/os0sync.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/os/os0thread.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/page/page0cur.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/page/page0page.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/page/page0zip.cc.o
+[ 22%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/pars/lexyy.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/pars/pars0grm.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/pars/pars0opt.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/pars/pars0pars.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/pars/pars0sym.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/que/que0que.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/read/read0read.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/rem/rem0cmp.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/rem/rem0rec.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0ext.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0ftsort.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0import.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0ins.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0merge.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0mysql.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0log.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0purge.cc.o
+[ 23%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0row.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0sel.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0uins.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0umod.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0undo.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0upd.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0quiesce.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/row/row0vers.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/srv/srv0conc.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/srv/srv0mon.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/srv/srv0srv.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/srv/srv0start.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/sync/sync0arr.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/sync/sync0rw.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/sync/sync0sync.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/trx/trx0i_s.cc.o
+[ 24%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/trx/trx0purge.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/trx/trx0rec.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/trx/trx0roll.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/trx/trx0rseg.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/trx/trx0sys.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/trx/trx0trx.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/trx/trx0undo.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/usr/usr0sess.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ut/ut0bh.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ut/ut0byte.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ut/ut0crc32.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ut/ut0dbg.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ut/ut0list.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ut/ut0mem.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ut/ut0rbt.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ut/ut0rnd.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ut/ut0ut.cc.o
+[ 25%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ut/ut0vec.cc.o
+[ 26%] Building CXX object storage/innobase/CMakeFiles/innobase_embedded.dir/ut/ut0wqueue.cc.o
+[ 26%] Building C object storage/innobase/CMakeFiles/innobase_embedded.dir/zlib_embedded/adler32.c.o
+[ 26%] Building C object storage/innobase/CMakeFiles/innobase_embedded.dir/zlib_embedded/crc32.c.o
+[ 26%] Building C object storage/innobase/CMakeFiles/innobase_embedded.dir/zlib_embedded/deflate.c.o
+[ 26%] Building C object storage/innobase/CMakeFiles/innobase_embedded.dir/zlib_embedded/infback.c.o
+[ 26%] Building C object storage/innobase/CMakeFiles/innobase_embedded.dir/zlib_embedded/inffast.c.o
+[ 26%] Building C object storage/innobase/CMakeFiles/innobase_embedded.dir/zlib_embedded/inflate.c.o
+[ 26%] Building C object storage/innobase/CMakeFiles/innobase_embedded.dir/zlib_embedded/inftrees.c.o
+[ 26%] Building C object storage/innobase/CMakeFiles/innobase_embedded.dir/zlib_embedded/trees.c.o
+[ 26%] Building C object storage/innobase/CMakeFiles/innobase_embedded.dir/zlib_embedded/zutil.c.o
+Linking CXX static library libinnobase_embedded.a
+[ 26%] Built target innobase_embedded
+Scanning dependencies of target myisam
+[ 26%] Building C object storage/myisam/CMakeFiles/myisam.dir/ft_boolean_search.c.o
+[ 26%] Building C object storage/myisam/CMakeFiles/myisam.dir/ft_nlq_search.c.o
+[ 26%] Building C object storage/myisam/CMakeFiles/myisam.dir/ft_parser.c.o
+[ 26%] Building C object storage/myisam/CMakeFiles/myisam.dir/ft_static.c.o
+[ 26%] Building CXX object storage/myisam/CMakeFiles/myisam.dir/ha_myisam.cc.o
+[ 26%] Building C object storage/myisam/CMakeFiles/myisam.dir/ft_stopwords.c.o
+[ 26%] Building C object storage/myisam/CMakeFiles/myisam.dir/ft_update.c.o
+[ 26%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_cache.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_changed.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_check.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_checksum.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_close.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_create.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_dbug.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_delete.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_delete_all.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_delete_table.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_dynrec.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_extra.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_info.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_key.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_keycache.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_locking.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_log.c.o
+[ 27%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_open.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_packrec.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_page.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_panic.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_preload.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_range.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_rename.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_rfirst.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_rlast.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_rnext.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_rnext_same.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_rprev.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_rrnd.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_rsame.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_rsamepos.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_scan.c.o
+[ 28%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_search.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_static.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_statrec.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_unique.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_update.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_write.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam.dir/rt_index.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam.dir/rt_key.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam.dir/rt_mbr.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam.dir/rt_split.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam.dir/sort.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam.dir/sp_key.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam.dir/mi_rkey.c.o
+Linking CXX static library libmyisam.a
+[ 29%] Built target myisam
+Scanning dependencies of target myisam_embedded
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/ft_boolean_search.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/ft_nlq_search.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/ft_parser.c.o
+[ 29%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/ft_static.c.o
+[ 29%] Building CXX object storage/myisam/CMakeFiles/myisam_embedded.dir/ha_myisam.cc.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/ft_stopwords.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/ft_update.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_cache.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_changed.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_check.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_checksum.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_close.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_create.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_dbug.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_delete.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_delete_all.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_delete_table.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_dynrec.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_extra.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_info.c.o
+[ 30%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_key.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_keycache.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_locking.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_log.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_open.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_packrec.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_page.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_panic.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_preload.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_range.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_rename.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_rfirst.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_rlast.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_rnext.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_rnext_same.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_rprev.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_rrnd.c.o
+[ 31%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_rsame.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_rsamepos.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_scan.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_search.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_static.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_statrec.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_unique.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_update.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_write.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/rt_index.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/rt_key.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/rt_mbr.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/rt_split.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/sort.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/sp_key.c.o
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_embedded.dir/mi_rkey.c.o
+Linking CXX static library libmyisam_embedded.a
+[ 32%] Built target myisam_embedded
+Scanning dependencies of target myisam_ftdump
+[ 32%] Building C object storage/myisam/CMakeFiles/myisam_ftdump.dir/myisam_ftdump.c.o
+Linking CXX executable myisam_ftdump
+[ 32%] Built target myisam_ftdump
+Scanning dependencies of target myisamchk
+[ 32%] Building C object storage/myisam/CMakeFiles/myisamchk.dir/myisamchk.c.o
+Linking CXX executable myisamchk
+[ 32%] Built target myisamchk
+Scanning dependencies of target myisamlog
+[ 33%] Building C object storage/myisam/CMakeFiles/myisamlog.dir/myisamlog.c.o
+Linking CXX executable myisamlog
+[ 33%] Built target myisamlog
+Scanning dependencies of target myisampack
+[ 33%] Building C object storage/myisam/CMakeFiles/myisampack.dir/myisampack.c.o
+Linking CXX executable myisampack
+[ 33%] Built target myisampack
+Scanning dependencies of target heap
+[ 33%] Building C object storage/heap/CMakeFiles/heap.dir/_check.c.o
+[ 33%] Building C object storage/heap/CMakeFiles/heap.dir/_rectest.c.o
+[ 33%] Building C object storage/heap/CMakeFiles/heap.dir/hp_block.c.o
+[ 33%] Building C object storage/heap/CMakeFiles/heap.dir/hp_clear.c.o
+[ 33%] Building C object storage/heap/CMakeFiles/heap.dir/hp_close.c.o
+[ 33%] Building C object storage/heap/CMakeFiles/heap.dir/hp_create.c.o
+[ 33%] Building CXX object storage/heap/CMakeFiles/heap.dir/ha_heap.cc.o
+[ 33%] Building C object storage/heap/CMakeFiles/heap.dir/hp_delete.c.o
+[ 33%] Building C object storage/heap/CMakeFiles/heap.dir/hp_extra.c.o
+[ 33%] Building C object storage/heap/CMakeFiles/heap.dir/hp_hash.c.o
+[ 33%] Building C object storage/heap/CMakeFiles/heap.dir/hp_info.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_open.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_panic.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_rename.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_rfirst.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_rkey.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_rlast.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_rnext.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_rprev.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_rrnd.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_rsame.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_scan.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_static.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_update.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap.dir/hp_write.c.o
+Linking CXX static library libheap.a
+[ 34%] Built target heap
+Scanning dependencies of target heap_embedded
+[ 34%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/_check.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/_rectest.c.o
+[ 34%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_block.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_clear.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_close.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_create.c.o
+[ 35%] Building CXX object storage/heap/CMakeFiles/heap_embedded.dir/ha_heap.cc.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_delete.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_extra.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_hash.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_info.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_open.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_panic.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_rename.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_rfirst.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_rkey.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_rlast.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_rnext.c.o
+[ 35%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_rprev.c.o
+[ 36%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_rrnd.c.o
+[ 36%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_rsame.c.o
+[ 36%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_scan.c.o
+[ 36%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_static.c.o
+[ 36%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_update.c.o
+[ 36%] Building C object storage/heap/CMakeFiles/heap_embedded.dir/hp_write.c.o
+Linking CXX static library libheap_embedded.a
+[ 36%] Built target heap_embedded
+Scanning dependencies of target hp_test1
+[ 36%] Building C object storage/heap/CMakeFiles/hp_test1.dir/hp_test1.c.o
+Linking CXX executable hp_test1
+[ 36%] Built target hp_test1
+Scanning dependencies of target hp_test2
+[ 36%] Building C object storage/heap/CMakeFiles/hp_test2.dir/hp_test2.c.o
+Linking CXX executable hp_test2
+[ 36%] Built target hp_test2
+Scanning dependencies of target rocksdb_se
+[ 36%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/ha_rocksdb.cc.o
+/home/wonki/git/myrocks/storage/rocksdb/ha_rocksdb.cc: In member function ‘virtual int myrocks::ha_rocksdb::ha_bulk_load(int, uchar*)’:
+/home/wonki/git/myrocks/storage/rocksdb/ha_rocksdb.cc:11793:35: warning: ‘type’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+             if (type == 3 || type == 246) {// long type
+                                   ^
+/home/wonki/git/myrocks/storage/rocksdb/ha_rocksdb.cc: At global scope:
+/home/wonki/git/myrocks/storage/rocksdb/ha_rocksdb.cc:5175:13: warning: ‘void myrocks::dbug_change_status_to_corrupted(rocksdb::Status*)’ defined but not used [-Wunused-function]
+ static void dbug_change_status_to_corrupted(rocksdb::Status *status) {
+             ^
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/rdb_datadic.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/rdb_cf_options.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/rdb_cf_manager.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/properties_collector.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/event_listener.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/rdb_i_s.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/rdb_index_merge.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/rdb_io_watchdog.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/rdb_perf_context.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/rdb_mutex_wrapper.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/rdb_psi.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/rdb_sst_info.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/rdb_utils.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/rdb_threads.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/cache/clock_cache.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/cache/lru_cache.cc.o
+[ 37%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/cache/sharded_cache.cc.o
+[ 38%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/builder.cc.o
+[ 38%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/c.cc.o
+[ 38%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/column_family.cc.o
+[  2%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/compacted_db_impl.cc.o
+[  2%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/compaction.cc.o
+[  4%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/compaction_iterator.cc.o
+[  5%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/compaction_job.cc.o
+[  6%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/compaction_picker.cc.o
+[  6%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/compaction_picker_fifo.cc.o
+[  6%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/compaction_picker_universal.cc.o
+[  6%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/convenience.cc.o
+[  6%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/db_filesnapshot.cc.o
+[  6%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/db_impl.cc.o
+[  6%] Building CXX object storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/db_impl_compaction_flush.cc.o
+gmake[2]: *** [storage/rocksdb/CMakeFiles/rocksdb_se.dir/__/__/rocksdb/db/db_impl_compaction_flush.cc.o] Terminated
+gmake[1]: *** [storage/rocksdb/CMakeFiles/rocksdb_se.dir/all] Terminated
+gmake: *** [all] Terminated

@@ -2897,6 +2897,8 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
         tab[-1].next_select=sub_select_avxblock;
       } else if (accelerated_mode == ACCEL_MODE_GPU && strcmp(table->file->table_type(), "MEMORY")) {
         tab[-1].next_select=sub_select_gpu;
+      } else if (accelerated_mode == ACCEL_MODE_ASYNC && strcmp(table->file->table_type(), "MEMORY")) {
+        tab[-1].next_select=sub_select_gpuasync;
       } else if (tab->use_join_cache != JOIN_CACHE::ALG_NONE) {
         tab[-1].next_select=sub_select_op;
       }

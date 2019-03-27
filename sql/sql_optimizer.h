@@ -473,6 +473,8 @@ public:
       first_select = sub_select_avxblock;
     } else if (accelerated_mode == ACCEL_MODE_GPU) {
       first_select = sub_select_gpu;
+    } else if (accelerated_mode == ACCEL_MODE_ASYNC) {
+        first_select = sub_select_gpuasync;
     } else {  // ACCEL_MODE_OFF
       first_select = sub_select;
     }

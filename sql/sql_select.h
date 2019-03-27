@@ -654,6 +654,7 @@ public:
   bool          not_used_in_distinct;
   /* GPU Accelerator */
   bool buf_exists;
+
   /* 
     If it's not 0 the number stored this field indicates that the index
     scan has been chosen to access the table data and we expect to scan 
