@@ -11753,7 +11753,7 @@ int ha_rocksdb::ha_bulk_load_avx(int record_seq, uchar* buf) {
     DBUG_ENTER_FUNC();
     int rc = 0;
     int join_idx = -1;
-    std::cout << "ha_bulk_load_avx call " << std::endl;
+    // std::cout << "ha_bulk_load_avx call " << std::endl;
 
     if (record_seq == 0) { // first input
         int idx = -1;
@@ -11917,7 +11917,7 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, uchar* buf) {
     DBUG_ENTER_FUNC();
     int rc = 0;
     int join_idx = -1;
-    std::cout << "ha_bulk_load_gpu call " << std::endl;
+    // std::cout << "ha_bulk_load_gpu call " << std::endl;
 
     // Non-first input case
     if (record_seq != 0) {

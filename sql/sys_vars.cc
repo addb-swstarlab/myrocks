@@ -6135,7 +6135,7 @@ static Sys_var_mybool Sys_gpu_accelerated(
        DEFAULT(FALSE));
 
 static Sys_var_ulonglong Sys_gpu_buff_size(
-       "gpu buff size",
+       "gpu_buff_size",
        "Max size of the gpu buffer",
        GLOBAL_VAR(gpu_buff_size), CMD_LINE(OPT_ARG),
        VALID_RANGE(0, ULONGLONG_MAX), DEFAULT(64 << 20), BLOCK_SIZE(1));
