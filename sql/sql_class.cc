@@ -3607,6 +3607,7 @@ void Query_arena::free_items()
     next= free_list->next;
     free_list->delete_self();
   }
+
   /* Postcondition: free_list is 0 */
   DBUG_VOID_RETURN;
 }

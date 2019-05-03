@@ -50,6 +50,7 @@
 
 /* RocksDB includes */
 #include "accelerator/common.h"
+#include "accelerator/gpu_manager.h"
 #include "monitoring/histogram.h"
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/env.h"
@@ -11761,10 +11762,10 @@ const char * ha_rocksdb::make_cond_str(Item * item) {
 
 /* "cond_push" function fetch conditions from myrocks optimizer to handler class */
 
-const class Item *ha_rocksdb::cond_push(const class Item * cond) {
+const Item *ha_rocksdb::cond_push(const Item * cond) {
     DBUG_ENTER_FUNC();
     pushed_cond = cond;
-    DBUG_RETURN(nullptr);
+    DBUG_RETURN(cond);
 }
 
 bool ha_rocksdb::check_cond_not_null(std::string cond_str) {
@@ -11777,7 +11778,6 @@ int ha_rocksdb::ha_bulk_load_avx(int record_seq, uchar* buf) {
     DBUG_ENTER_FUNC();
     int rc = 0;
     int join_idx = -1;
-    std::cout << "ha_bulk_load_avx call " << std::endl;
 
     if (record_seq == 0) { // first input
         int idx = -1;
@@ -11787,13 +11787,13 @@ int ha_rocksdb::ha_bulk_load_avx(int record_seq, uchar* buf) {
 
         Item * item = const_cast<Item *>(pushed_cond);
         std::string cond_str(make_cond_str(item));
-        std::cout << "condition str = " << cond_str << std::endl;
+        //std::cout << "condition str = " << cond_str << std::endl;
 
         if (check_cond_not_null(cond_str)) {
            calculate_parm(cond_str, &pivot, &idx, &cond);
         }
 
-        std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
+        //std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
         gkeys.clear();
         avxValues.clear();
 
@@ -11835,13 +11835,13 @@ int ha_rocksdb::ha_bulk_load_avx(int record_seq, uchar* buf) {
         rocksdb::SlicewithSchema table_key((const char *) m_pk_packed_tuple, 4,
                 ctx, target, type, length, skip);
 
-        std::cout << "table name : " << table->alias << std::endl;
-        std::cout << "table key : " << table_key.ToString(1) << std::endl;
+        //std::cout << "table name : " << table->alias << std::endl;
+        //std::cout << "table key : " << table_key.ToString(1) << std::endl;
 
         rocksdb::Status s = tx->value_filter(
             m_pk_descr->get_cf(), table_key, avxValues, join_idx);
 
-        std::cout << "avx size = " << avxValues.size() << std::endl;
+        //std::cout << "avx size = " << avxValues.size() << std::endl;
         rc = avxValues.size();
 
     } else {
@@ -11866,13 +11866,13 @@ bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_n
 
         Item * item = const_cast<Item *>(pushed_cond);
         std::string cond_str(make_cond_str(item));
-        std::cout << "condition str = " << cond_str << std::endl;
+        //std::cout << "condition str = " << cond_str << std::endl;
 
         if (check_cond_not_null(cond_str)) {
            calculate_parm(cond_str, &pivot, &idx, &cond);
         }
         
-        std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
+        //std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
         gkeys.clear();
         //gvalues.clear();
         //pvalues.clear();
@@ -11915,8 +11915,8 @@ bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_n
         rocksdb::SlicewithSchema table_key((const char *) m_pk_packed_tuple, 4,
                 ctx, target, type, length, skip);
 
-        std::cout << "table name : " << table->alias << std::endl;
-        std::cout << "table key : " << table_key.ToString(1) << std::endl;
+        //std::cout << "table name : " << table->alias << std::endl;
+        //std::cout << "table key : " << table_key.ToString(1) << std::endl;
 
         rocksdb::Status s = tx->value_filter(
             m_pk_descr->get_cf(), table_key, pvalues, join_idx);
@@ -11941,7 +11941,7 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, uchar* buf) {
     DBUG_ENTER_FUNC();
     int rc = 0;
     int join_idx = -1;
-    std::cout << "ha_bulk_load_gpu call " << std::endl;
+    //std::cout << "ha_bulk_load_gpu call " << std::endl;
 
     // Non-first input case
     if (record_seq != 0) {
@@ -11958,13 +11958,13 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, uchar* buf) {
 
     Item * item = const_cast<Item *>(pushed_cond);
     std::string cond_str(make_cond_str(item));
-    std::cout << "condition str = " << cond_str << std::endl;
+    //std::cout << "condition str = " << cond_str << std::endl;
 
     if (check_cond_not_null(cond_str)) {
         calculate_parm(cond_str, &pivot, &idx, &cond);
     }
 
-    std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
+    //std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
     gkeys.clear();
     avxValues.clear();
 
@@ -12002,39 +12002,47 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, uchar* buf) {
     rocksdb::SlicewithSchema table_key(
         (const char *) m_pk_packed_tuple, 4, ctx, target, type, length, skip);
 
-    std::cout << "table name : " << table->alias << std::endl;
-    std::cout << "table key : " << table_key.ToString(1) << std::endl;
+    //std::cout << "table name : " << table->alias << std::endl;
+    //std::cout << "table key : " << table_key.ToString(1) << std::endl;
 
     rocksdb::Status s = tx->value_filter(
         m_pk_descr->get_cf(), table_key, avxValues, join_idx);
 
-    std::cout << "value size = " << avxValues.size() << std::endl;
+    //std::cout << "value size = " << avxValues.size() << std::endl;
     rc = avxValues.size();
 
     DBUG_RETURN(rc);
 }
 
 int ha_rocksdb::ha_bulk_load_gpuasync(uint table_num, std::vector<std::string> tbl_keys, std::vector<std::string> conds, std::vector<long> pivots,
-        std::vector<int> targets, std::vector<uint> *types, std::vector<uint> *lengths, std::vector<uint> *skips) {
+        std::vector<int> targets, std::vector<uint> *types, std::vector<uint> *lengths, std::vector<uint> *skips, void ** gpu_handler) {
     DBUG_ENTER_FUNC();
     int rc = 0;
 
     std::vector<rocksdb::SlicewithSchema> table_keys;
 
     for(uint i = 0; i < table_num; i++) {
+       std::cout << i << " th async cond = " << conds[i] << " pivot = " << pivots[i] <<std::endl;
        accelerator::FilterContext ctx { condToOp(conds[i]), pivots[i] };
        rocksdb::SlicewithSchema table_key(tbl_keys[i].data(), tbl_keys[i].size(), ctx,
                targets[i], types[i], lengths[i], skips[i]);
+       std::cout << i << " th async table_key " << table_key.ToString(1) << std::endl;
+       for(uint j = 0; j < types[i].size(); j++)
+          std::cout << i << " th async type " << j << "th " << types[i][j] << " " << lengths[i][j] << " " << skips[i][j] << std::endl;
        table_keys.push_back(std::move(table_key));
     }
 
-    gpu_handle= new rocksdb::GPUManager(table_num, true, &table_keys);
+    *gpu_handler= new rocksdb::GPUManager(table_num, true, &table_keys, 4);
+
+    for(uint k =0 ; k < table_num; k++)
+    std::cout << " GPU Manager table_num = " << table_num << " table_keys "
+            << (*(((rocksdb::GPUManager *)*gpu_handler)->schemakey))[k].ToString(1) <<std::endl;
 
     Rdb_transaction * const tx = get_or_create_tx(table->in_use);
     DBUG_ASSERT(tx != nullptr);
 
     rocksdb::Status s = tx->async_filter(
-        m_pk_descr->get_cf(), gpu_handle);
+        m_pk_descr->get_cf(), (rocksdb::GPUManager *)*gpu_handler);
 
     std::cout << "value size = " << avxValues.size() << std::endl;
     rc = avxValues.size();
@@ -12058,7 +12066,8 @@ std::string ha_rocksdb::ha_return_key(std::string * _cond, long * _pivot, int * 
         calculate_parm(cond_str, &pivot, &idx, &cond);
     }
 
-    //unsigned int size = m_decoders_vect.size();
+    unsigned int size = m_decoders_vect.size();
+    std::cout << "ha_return key size = " << size << std::endl;
 
     for (size_t i = 0; i < m_decoders_vect.size(); ++i) {
       myrocks::ha_rocksdb::READ_FIELD &field = m_decoders_vect[i];
@@ -12093,11 +12102,12 @@ std::string ha_rocksdb::ha_return_key(std::string * _cond, long * _pivot, int * 
     return table_key;
 }
 
-int ha_rocksdb::ha_convert_record(uchar* buf) {
+int ha_rocksdb::ha_convert_record(int join_idx, void *gpu_handler, uchar* buf) {
     DBUG_ENTER_FUNC();
+    std::vector<rocksdb::PinnableSlice> pop_target = std::move(((rocksdb::GPUManager *)gpu_handler)->asyncValues[join_idx]);
     int rc = convert_record_from_storage_format_gpu(&gkeys[0],
-                &(pvalues.back()), buf);
-    pvalues.pop_back();
+            &(pop_target.back()), buf);
+    pop_target.pop_back();
     if(rc) assert(0);
     return rc;
 }

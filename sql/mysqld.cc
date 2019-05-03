@@ -481,7 +481,7 @@ bool gpu_accelerated = 0;
 ulonglong gpu_buff_size = 0;
 ulong accelerated_mode;
 const char *accelerated_mode_names[]=
-{"OFF", "AVX", "AVX_BLOCK", "GPU", NullS};
+{"OFF", "AVX", "AVX_BLOCK", "GPU", "ASYNC", NullS};
 TYPELIB accelerated_mode_typelib=
 { array_elements(accelerated_mode_names) - 1, "", accelerated_mode_names, NULL };
 

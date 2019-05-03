@@ -635,16 +635,16 @@ class ha_rocksdb : public my_core::handler {
   std::vector <rocksdb::PinnableSlice> avxValues;
   std::vector <rocksdb::PinnableSlice> pvalues;
   std::vector <rocksdb::PinnableSlice> *asyncValues;
-  rocksdb::GPUManager * gpu_handle;
+  //rocksdb::GPUManager * gpu_handle;
 
   int ha_bulk_load_avx(int record_seq, uchar * buf) override;
   bool ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_num, uchar * buf) override;
   int ha_bulk_load_gpu(int record_seq, uchar * buf) override;
   int ha_bulk_load_gpuasync(uint table_num, std::vector<std::string> tbl_keys, std::vector<std::string> conds, std::vector<long> pivots,
-          std::vector<int> targets, std::vector<uint> *types, std::vector<uint> *lengths, std::vector<uint> *skips) override;
+          std::vector<int> targets, std::vector<uint> *types, std::vector<uint> *lengths, std::vector<uint> *skips, void ** gpu_handler) override;
   std::string ha_return_key(std::string * _cond, long * _pivot, int * _target, std::vector<uint> * _type,
           std::vector<uint> * _length, std::vector<uint> * _skip) override;
-  int ha_convert_record(uchar * buf) override;
+  int ha_convert_record(int join_idx, void* gpu_handler, uchar * buf) override;
   void split_from_string(std::string delimiter, std::string target, std::vector<std::string> &ret);
   accelerator::Operator condToOp(std::string cond);
   void calculate_parm(std::string cond_str, long * pivot,
@@ -1079,7 +1079,7 @@ public:
       MY_ATTRIBUTE((__warn_unused_result__));
 
   /* GPU Accelerator */
-  const class Item *cond_push(const class Item *cond) override;
+  const Item *cond_push(const Item *cond) override;
   class Item *idx_cond_push(uint keyno, class Item *const idx_cond) override;
   const char * make_cond_str(Item * const item);
   bool check_cond_not_null(std::string cond_str);

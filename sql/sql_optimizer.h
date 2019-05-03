@@ -400,6 +400,7 @@ public:
 
   /* GPU Accelerator */
   bool gpu_complete;
+  void * gpu_handler;
 
   JOIN(THD *thd_arg, List<Item> &fields_arg, ulonglong select_options_arg,
        select_result *result_arg)
@@ -481,6 +482,7 @@ public:
     set_group_rpa= false;
     group_sent= 0;
     gpu_complete = false;
+    gpu_handler = nullptr;
   }
 
   /// True if plan is const, ie it will return zero or one rows.

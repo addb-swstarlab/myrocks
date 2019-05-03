@@ -956,8 +956,8 @@ st_join_table::st_join_table()
     ref(),
     use_join_cache(0),
     op(NULL),
-	gpu_buffer(NULL),
-	buf_record(0),
+    gpu_buffer(NULL),
+    buf_record(0),
 
     cache_idx_cond(NULL),
     cache_select(NULL),

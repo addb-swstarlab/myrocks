@@ -742,7 +742,6 @@ JOIN::optimize()
 	      (group_list && order) ||
 	      MY_TEST(select_options & OPTION_BUFFER_RESULT))) ||
              (rollup.state != ROLLUP::STATE_NONE && select_distinct));
-
   /* Perform FULLTEXT search before all regular searches */
   if (!(select_options & SELECT_DESCRIBE) &&
       !select_lex->materialized_table_count)
@@ -857,6 +856,7 @@ JOIN::optimize()
       DBUG_RETURN(unit->item->change_engine(engine));
     }
   }
+  
   /*
     Need to tell handlers that to play it safe, it should fetch all
     columns of the primary key of the tables: this is because MySQL may

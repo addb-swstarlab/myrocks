@@ -40,6 +40,7 @@
 #include "opt_explain_format.h" // Explain_format_flags
 
 #include <algorithm>
+
 using std::max;
 using std::min;
 
@@ -100,6 +101,11 @@ static bool cmp_buffer_with_ref(THD *thd, TABLE *table, TABLE_REF *tab_ref);
 void
 JOIN::exec()
 {
+//  Item * first = thd->free_list;
+//  printf("pointer %p====%p====%p\n" , this, thd , thd->free_list );
+//  for (first; first != nullptr; first = first->next) {
+//    std::cout << " free list in exec() 00 " << typeid(*first).name() << std::endl;
+//  }
   Opt_trace_context * const trace= &thd->opt_trace;
   Opt_trace_object trace_wrapper(trace);
   Opt_trace_object trace_exec(trace, "join_execution");
@@ -107,12 +113,11 @@ JOIN::exec()
   Opt_trace_array trace_steps(trace, "steps");
   List<Item> *columns_list= &fields_list;
   DBUG_ENTER("JOIN::exec");
-
   DBUG_ASSERT(!tables || thd->lex->is_query_tables_locked());
   DBUG_ASSERT(!(select_options & SELECT_DESCRIBE));
 
   THD_STAGE_INFO(thd, stage_executing);
-
+    
   // Ignore errors of execution if option IGNORE present
   if (thd->lex->ignore)
     thd->lex->current_select->no_error= true;
@@ -208,6 +213,7 @@ JOIN::exec()
   DBUG_PRINT("info", ("%s", thd->proc_info));
   result->send_result_set_metadata(*fields,
                                    Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
+
   if(accelerated_mode != ACCEL_MODE_OFF) {
 	error = do_select_accel(this);
   } else {
@@ -900,11 +906,10 @@ do_select(JOIN *join)
   enum_nested_loop_state error= NESTED_LOOP_OK;
   DBUG_ENTER("do_select");
 
-  std::cout << "do_select is called " <<std::endl;
+  std::cout << "[DO_SELECT]" <<std::endl;
   join->send_records=0;
   if (join->plan_is_const() && !join->need_tmp)
   {
-	std::cout << "do_select plan_is_const is called " <<std::endl;
     Next_select_func end_select= setup_end_select_func(join, NULL);
     /*
       HAVING will be checked after processing aggregate functions,
@@ -914,7 +919,6 @@ do_select(JOIN *join)
     */
     if (!join->conds || join->conds->val_int())
     {
-       std::cout << "do_select !join->conds is called " <<std::endl;
       // HAVING will be checked by end_select
       error= (*end_select)(join, 0, 0);
       if (error >= NESTED_LOOP_OK)
@@ -930,7 +934,6 @@ do_select(JOIN *join)
     }
     else if (join->send_row_on_empty_set())
     {
-      std::cout << "do_select join->send_row_on_empty_set " <<std::endl;
       table_map save_nullinfo= 0;
       /*
         If this is a subquery, we need to save and later restore
@@ -967,13 +970,12 @@ do_select(JOIN *join)
   }
   else
   {
-    std::cout << "do_select else " <<std::endl;
     JOIN_TAB *join_tab= join->join_tab + join->const_tables;
     DBUG_ASSERT(join->primary_tables);
+     
     error= join->first_select(join,join_tab,0);
-    if (error >= NESTED_LOOP_OK && join->thd->killed != THD::ABORT_QUERY)
+      if (error >= NESTED_LOOP_OK && join->thd->killed != THD::ABORT_QUERY)
     {
-      std::cout << "second first_select"  << std::endl;
       error= join->first_select(join,join_tab,1);
     }
     if (error == NESTED_LOOP_QUERY_LIMIT)
@@ -981,7 +983,6 @@ do_select(JOIN *join)
   }
   if (join->thd->killed == THD::ABORT_QUERY)
   {
-	std::cout << "do_select killed " <<std::endl;
     error= NESTED_LOOP_OK;
     /*
       If LIMIT ROWS EXAMINED interrupted query execution in outermost query,
@@ -992,7 +993,6 @@ do_select(JOIN *join)
     */
     if (!join->select_lex->outer_select())
     {
-      std::cout << "do_select outer_select" <<std::endl;
       push_warning_printf(join->thd, Sql_condition::WARN_LEVEL_WARN,
                           ER_QUERY_EXCEEDED_ROWS_EXAMINED_LIMIT,
                           ER(ER_QUERY_EXCEEDED_ROWS_EXAMINED_LIMIT),
@@ -1011,7 +1011,6 @@ do_select(JOIN *join)
   */
   if (join->order)
   {
-	std::cout << "do_select order " <<std::endl;
     // Save # of found records prior to cleanup
     JOIN_TAB *sort_tab;
     JOIN_TAB *join_tab= join->join_tab;
@@ -1043,7 +1042,6 @@ do_select(JOIN *join)
   }
   if (error == NESTED_LOOP_OK)
   {
-	 std::cout << "do_select error ok " <<std::endl;
     /*
       Sic: this branch works even if rc != 0, e.g. when
       send_data above returns an error.
@@ -1069,28 +1067,145 @@ do_select_accel(JOIN *join)
 {
   int rc= 0;
   enum_nested_loop_state error= NESTED_LOOP_OK;
-  DBUG_ENTER("do_select_with_gpu");
-  std::cout << "do_select_with_gpu " <<std::endl;
+  DBUG_ENTER("do_select_accel");
 
+  std::cout << "[DO_SELECT_ACCEL] " <<std::endl;
   join->send_records=0;
+  if (join->plan_is_const() && !join->need_tmp)
+  {
+    Next_select_func end_select= setup_end_select_func(join, NULL);
+    /*
+      HAVING will be checked after processing aggregate functions,
+      But WHERE should checkd here (we alredy have read tables)
 
-  JOIN_TAB *join_tab= join->join_tab + join->const_tables;
-  DBUG_ASSERT(join->primary_tables);
-  if(!strcmp(join_tab->table->file->table_type(), "MEMORY")) join->first_select = sub_select;
-  error= join->first_select(join,join_tab,0);
-  if (error >= NESTED_LOOP_OK && join->thd->killed != THD::ABORT_QUERY)
-    error= join->first_select(join,join_tab,1);
-  if (error == NESTED_LOOP_QUERY_LIMIT)
-    error= NESTED_LOOP_OK;                    /* select_limit used */
+      @todo: consider calling end_select instead of duplicating code
+    */
+    if (!join->conds || join->conds->val_int())
+    {
+      // HAVING will be checked by end_select
+      error= (*end_select)(join, 0, 0);
+      if (error >= NESTED_LOOP_OK)
+	error= (*end_select)(join, 0, 1);
+
+      /*
+        If we don't go through evaluate_join_record(), do the counting
+        here.  join->send_records is increased on success in end_send(),
+        so we don't touch it here.
+      */
+      join->examined_rows++;
+      DBUG_ASSERT(join->examined_rows <= 1);
+    }
+    else if (join->send_row_on_empty_set())
+    {
+      table_map save_nullinfo= 0;
+      /*
+        If this is a subquery, we need to save and later restore
+        the const table NULL info before clearing the tables
+        because the following executions of the subquery do not
+        reevaluate constant fields. @see save_const_null_info
+        and restore_const_null_info
+      */
+      if (join->select_lex->master_unit()->item && join->const_tables)
+        save_const_null_info(join, &save_nullinfo);
+
+      // Calculate aggregate functions for no rows
+      List_iterator_fast<Item> it(*join->fields);
+      Item *item;
+      while ((item= it++))
+        item->no_rows_in_result();
+
+      // Mark tables as containing only NULL values
+      join->clear();
+
+      if (!join->having || join->having->val_int())
+        rc= join->result->send_data(*join->fields);
+
+      if (save_nullinfo)
+        restore_const_null_info(join, save_nullinfo);
+    }
+    /*
+      An error can happen when evaluating the conds 
+      (the join condition and piece of where clause 
+      relevant to this join table).
+    */
+    if (join->thd->is_error())
+      error= NESTED_LOOP_ERROR;
+  }
+  else
+  {
+    JOIN_TAB *join_tab= join->join_tab + join->const_tables;
+    DBUG_ASSERT(join->primary_tables);
+
+    if(!strcmp(join_tab->table->file->table_type(), "MEMORY")) join->first_select = sub_select;
+
+    error= join->first_select(join,join_tab,0);
+        
+    if (error >= NESTED_LOOP_OK && join->thd->killed != THD::ABORT_QUERY)
+    {
+      error= join->first_select(join,join_tab,1);
+    }
+    
+    if (error == NESTED_LOOP_QUERY_LIMIT)
+      error= NESTED_LOOP_OK;                    /* select_limit used */
+  }
+  if (join->thd->killed == THD::ABORT_QUERY)
+  {
+    error= NESTED_LOOP_OK;
+    /*
+      If LIMIT ROWS EXAMINED interrupted query execution in outermost query,
+      issue a warning. If interruption occured in one of the inner queries,
+      then queries which are outer related to it will be interrupted as well.
+      To avoid warning duplication, the warning is issued only in outermost
+      query.
+    */
+    if (!join->select_lex->outer_select())
+    {
+      push_warning_printf(join->thd, Sql_condition::WARN_LEVEL_WARN,
+                          ER_QUERY_EXCEEDED_ROWS_EXAMINED_LIMIT,
+                          ER(ER_QUERY_EXCEEDED_ROWS_EXAMINED_LIMIT),
+                          join->thd->get_accessed_rows_and_keys(),
+                          join->thd->lex->limit_rows_examined->val_uint());
+    }
+  }
 
   join->thd->limit_found_rows= join->send_records;
+  /*
+    For "order by with limit", we cannot rely on send_records, but need
+    to use the rowcount read originally into the join_tab applying the
+    filesort. There cannot be any post-filtering conditions, nor any
+    following join_tabs in this case, so this rowcount properly represents
+    the correct number of qualifying rows.
+  */
+  if (join->order)
+  {
+    // Save # of found records prior to cleanup
+    JOIN_TAB *sort_tab;
+    JOIN_TAB *join_tab= join->join_tab;
+    uint const_tables= join->const_tables;
+
+    // Take record count from first non constant table or from last tmp table
+    if (join->tmp_tables > 0)
+      sort_tab= join_tab + join->primary_tables + join->tmp_tables - 1;
+    else
+    {
+      DBUG_ASSERT(!join->plan_is_const());
+      sort_tab= join_tab + const_tables;
+    }
+    if (sort_tab->filesort &&
+        join->select_options & OPTION_FOUND_ROWS &&
+        sort_tab->filesort->sortorder &&
+        sort_tab->filesort->limit != HA_POS_ERROR)
+    {
+      join->thd->limit_found_rows= sort_tab->records;
+    }
+  }
 
   {
     /*
       The following will unlock all cursors if the command wasn't an
       update command
     */
-    join->join_free();			// Unlock all cursors
+   join->join_free();			// Unlock all cursors
   }
   if (error == NESTED_LOOP_OK)
   {
@@ -1159,7 +1274,6 @@ sub_select_op(JOIN *join, JOIN_TAB *join_tab, bool end_of_records)
 
   DBUG_ENTER("sub_select_op");
 
-  std::cout << "sub_select_op call" << std::endl;
   if (join->thd->killed)
   {
     /* The user has aborted the execution of the query */
@@ -1321,7 +1435,6 @@ sub_select(JOIN *join,JOIN_TAB *join_tab,bool end_of_records)
 {
   DBUG_ENTER("sub_select");
 
-  std::cout << "subselect call " << end_of_records << std::endl;
   join_tab->table->null_row=0;
   if (end_of_records)
   {
@@ -1329,7 +1442,7 @@ sub_select(JOIN *join,JOIN_TAB *join_tab,bool end_of_records)
       (*join_tab->next_select)(join,join_tab+1,end_of_records);
     DBUG_RETURN(nls);
   }
-  std::cout << "table info :: " << join_tab->table->file->table_type() << std::endl;
+
   READ_RECORD *info= &join_tab->read_record;
 
   if (join_tab->prepare_scan()) {
@@ -1417,8 +1530,6 @@ sub_select_avx(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
       std::cout << "sub_select_avx call " << std::endl;
 
       if(!join->gpu_complete) {
-        std::cout << "sub_select_avx call222 : " << join->const_tables
-                << " table num : " << join->tables << std::endl;
       /* Stage 1 : GPU Processing */
         for (uint i= join->const_tables; i < join->tables; i++)
         {
@@ -1429,10 +1540,8 @@ sub_select_avx(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
           Item * cond = tab->condition();
           table->file->cond_push(cond);
 
-          std::cout << "handler type = " << table->file->table_type() << std::endl;
           table->file->ha_rnd_init(1);
           record_num = table->file->ha_bulk_load_avx(0, table->record[0]);
-          std::cout<< "record num = " << record_num <<std::endl;
 
           tab->buf_record = record_num;
           for (int j=1; j < record_num + 1; j++) {
@@ -1452,7 +1561,6 @@ sub_select_avx(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
       /* Stage 2 : Join Processing */
 
       if (join_tab->prepare_scan()) {
-    	std::cout << "prepare scan " << std::endl;
         DBUG_RETURN(NESTED_LOOP_ERROR);
       }
 
@@ -1517,10 +1625,11 @@ enum_nested_loop_state sub_select_avxblock(JOIN *join, JOIN_TAB *join_tab,
             Item * cond = tab->condition();
             table->file->cond_push(cond);
             table->file->ha_rnd_init(1);
+            table->file->ha_rnd_end();
         }
         join->gpu_complete = true;
     }
- 
+
     if (end_of_records) {
         enum_nested_loop_state nls = (*join_tab->next_select)(join,
                 join_tab + 1, end_of_records);
@@ -1538,7 +1647,7 @@ enum_nested_loop_state sub_select_avxblock(JOIN *join, JOIN_TAB *join_tab,
     join_tab->found_match = false;
 
     //join_tab->gpu_buffer->reset_cache(false);
-    
+
     bool first_read = true;
     bool end_table = false;
     bool end_record = false;
@@ -1554,7 +1663,7 @@ enum_nested_loop_state sub_select_avxblock(JOIN *join, JOIN_TAB *join_tab,
         if(first_read || end_record) {
 
             /* Reset Cache Before write */
-            join_tab->gpu_buffer->reset_cache(true); 
+            join_tab->gpu_buffer->reset_cache(true);
             bool buf_full = false;
 
             /* Put record to Buffer until buffer is full */
@@ -1592,13 +1701,13 @@ enum_nested_loop_state sub_select_avxblock(JOIN *join, JOIN_TAB *join_tab,
             } else if (join->thd->killed) {
                 join->thd->send_kill_message();
                 rc = NESTED_LOOP_KILLED;
-                break;                
+                break;
             } else {
                 rc = evaluate_join_record(join, join_tab);
-            }           
+            }
         }
         end_record = true;
-                       
+
         DBUG_EXECUTE_IF("bug13822652_1", join->thd->killed = THD::KILL_QUERY;);
 
         if (end_table && !record_num) {
@@ -1620,8 +1729,6 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
       std::cout << "sub_select_gpu call " << std::endl;
 
       if(!join->gpu_complete) {
-        std::cout << "sub_select_gpu call222 : " << join->const_tables
-                << " table num : " << join->tables << std::endl;
       /* Stage 1 : GPU Processing */
         for (uint i= join->const_tables; i < join->tables; i++)
         {
@@ -1632,10 +1739,8 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
           Item * cond = tab->condition();
           table->file->cond_push(cond);
 
-          std::cout << "handler type = " << table->file->table_type() << std::endl;
           table->file->ha_rnd_init(1);
           record_num = table->file->ha_bulk_load_gpu(0, table->record[0]);
-          std::cout<< "record num = " << record_num <<std::endl;
 
           tab->buf_record = record_num;
           for (int j=1; j < record_num + 1; j++) {
@@ -1655,7 +1760,6 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
       /* Stage 2 : Join Processing */
 
       if (join_tab->prepare_scan()) {
-    	std::cout << "prepare scan " << std::endl;
         DBUG_RETURN(NESTED_LOOP_ERROR);
       }
 
@@ -1706,22 +1810,19 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
 
 enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
         bool end_of_records) {
-    DBUG_ENTER("sub_select_avxblock");
+    DBUG_ENTER("sub_select_gpuasync");
     enum_nested_loop_state rc = NESTED_LOOP_OK;
 
-    std::cout << "sub_select_gpuasync call " << std::endl;
-    uint table_num = join->tables - join->const_tables;
-
-    std::vector<std::string> tbl_keys;
-    std::vector<std::string> conds;
-    std::vector<long> pivots;
-    std::vector<int> targets;
-    std::vector<uint> types[table_num];
-    std::vector<uint> lengths[table_num];
-    std::vector<uint> skips[table_num];
 
     if (!join->gpu_complete) {
-        /* Stage 1 : Retrieve Related files */
+        uint table_num = join->tables - join->const_tables;
+
+        std::vector<std::string> tbl_keys, conds;
+        std::vector<long> pivots;
+        std::vector<int> targets;
+        std::vector<uint> types[table_num], lengths[table_num], skips[table_num];
+
+
         for (uint i = join->const_tables; i < join->tables; i++) {
             JOIN_TAB * const tab = join->join_tab + i;
             TABLE * const table = tab->table;
@@ -1733,10 +1834,9 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
             std::string _cond = "INVALID";
             long _pivot = 0;
             int _target = 0;
-            std::vector<uint> _type;
-            std::vector<uint> _length;
-            std::vector<uint> _skip;
+            std::vector<uint> _type, _length, _skip;
 
+            /* Retrieve information about tables in join */
             tbl_keys.push_back(table->file->ha_return_key( &_cond, &_pivot, &_target, &_type, &_length, &_skip));
             conds.push_back(_cond);
             pivots.push_back(_pivot);
@@ -1744,12 +1844,15 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
             types[i] = _type;
             lengths[i] = _length;
             skips[i] = _skip;
-
+//            std::cout << "[" << table->alias <<"]" <<" cond = " << _cond << " pivot = " << _pivot
+//                    << " target =" << _target << std::endl;
+//            for(uint j = 0 ; j < _type.size(); j++)
+//              std::cout << i << " th " << _type[j] <<" " << _length[j] << " " << _skip[j] << " " << std::endl;
         }
 
+        /* start gpu_manager in a thread */
         join->join_tab->table->file->ha_bulk_load_gpuasync(table_num, tbl_keys,
-                conds, pivots, targets, types, lengths, skips);
-        /* Stage 2 : rearrange files combination to GPU Managers Queue */
+                conds, pivots, targets, types, lengths, skips, &join->gpu_handler);
         join->gpu_complete = true;
     }
 
@@ -1769,50 +1872,49 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
     join_tab->not_null_compl = true;
     join_tab->found_match = false;
 
-    //join_tab->gpu_buffer->reset_cache(false);
-
-    bool first_read = true;
-    bool end_table = false;
-    bool end_record = false;
-    int record_num = 0;
+    int join_idx = join_tab - join->join_tab;
+    JOIN_TAB * main_tbl = join->join_tab;
+    void * gpu_handler = join->gpu_handler;
 
     while (rc == NESTED_LOOP_OK && join->return_tab >= join_tab) {
         /* When comes from recursive path, We don't need to create a new buffer if already exists */
         int num_entry = 0;
-        if(join_tab->buf_exists) {
-            first_read = false;
-        }
+
         /* GPU Phase */
-        if(first_read || end_record) {
+        /* Reset Cache Before write */
+        join_tab->gpu_buffer->reset_cache(true);
+        bool buf_full = false; 
 
-            /* Reset Cache Before write */
-            join_tab->gpu_buffer->reset_cache(true);
-            bool buf_full = false;
+        /* Put record to Buffer until buffer is full */
+                
+//        bool gcond = true;
+//
+//        std::mutex * pro_cond = main_tbl->table->file->ha_return_mutex(gpu_handler);
+//        bool isEmpty = main_tbl->table->file->ha_return_empty(gpu_handler,join_idx);
+//        std::condition_variable * get_cond = main_tbl->table->file->ha_return_variable(true);
+//        std::condition_variable * put_cond = main_tbl->table->file->ha_return_variable(false);
+//        bool isEnd = main_tbl->table->file->ha_return_
+//
+//        std::unique_lock<std::mutex> lock(*pro_cond);
+//        if(isEmpty) {
+//            get_cond.wait(lock);
+//        }
+//
+//        while (!gpu_handle->asyncValues[join_idx].empty()) {
+//             join_tab->table->file->ha_convert_record(join_idx, gpu_handle, join_tab->table->record[0]);
+//             buf_full = ((GPU_BUFFER *)join_tab->gpu_buffer)->put_record_buf();
+//             num_entry++;
+//        }
+//
+//        put_cond.notify_one();
+//        lock.unlock();
 
-            /* Put record to Buffer until buffer is full */
-            while (!buf_full) {
-                /* If there is no entry to fetch, then break */
-                if(end_table && !record_num) {
-                    break;
-                }
-                /* Value vector has members to transform */
-                if(record_num) {
-                   join_tab->table->file->ha_convert_record(join_tab->table->record[0]);
-                   buf_full = ((GPU_BUFFER *)join_tab->gpu_buffer)->put_record_buf();
-                   num_entry++;
-                }
-            }
-
-            first_read = false;
-            join_tab->buf_exists = true;
-        }
-
-         // Reset Cache for read
+        // Reset Cache for read
         join_tab->gpu_buffer->reset_cache(false);
 
         /* Nested Loop Join among Buffers */
         while (num_entry--) {
-            end_record = join_tab->gpu_buffer->get_record();
+            join_tab->gpu_buffer->get_record();
             if (join->thd->is_error()) {
                 rc = NESTED_LOOP_ERROR;
                 break;
@@ -1824,17 +1926,14 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
                 rc = evaluate_join_record(join, join_tab);
             }
         }
-        end_record = true;
 
         DBUG_EXECUTE_IF("bug13822652_1", join->thd->killed = THD::KILL_QUERY;);
 
-        if (end_table && !record_num) {
-            join_tab->gpu_buffer->reset_cache(true);
-            join_tab->buf_exists = false;
-            break;
-        }
+//        if (!join->gpu_handler->start && join->gpu_handler->asyncValues[join_idx].empty()) {
+//            join_tab->gpu_buffer->reset_cache(true);
+//            break;
+//        }
     }
-
     DBUG_RETURN(rc);
 }
 
@@ -3425,7 +3524,6 @@ static enum_nested_loop_state
 end_send_accel(JOIN *join, JOIN_TAB *join_tab, bool end_of_records)
 {
   DBUG_ENTER("end_send");
-  std::cout << "end_gpu " << std::endl;
    /*
     When all tables are const this function is called with jointab == NULL.
     This function shouldn't be called for the first join_tab as it needs
@@ -3543,6 +3641,132 @@ end_send_group(JOIN *join, JOIN_TAB *join_tab MY_ATTRIBUTE((unused)),
 
   if (!join->first_record || end_of_records ||
       (idx=test_if_item_cache_changed(join->group_fields)) >= 0)
+  {  
+    if (!join->group_sent &&
+        (join->first_record ||
+         (end_of_records && !join->group && !join->group_optimized_away)))
+    {
+      if (idx < (int) join->send_group_parts)
+      {
+	int error=0;
+	{
+          table_map save_nullinfo= 0;
+          if (!join->first_record)
+          {
+            /*
+              If this is a subquery, we need to save and later restore
+              the const table NULL info before clearing the tables
+              because the following executions of the subquery do not
+              reevaluate constant fields. @see save_const_null_info
+              and restore_const_null_info
+            */
+            if (join->select_lex->master_unit()->item && join->const_tables)
+              save_const_null_info(join, &save_nullinfo);
+
+            // Calculate aggregate functions for no rows
+            List_iterator_fast<Item> it(*fields);
+            Item *item;
+
+            while ((item= it++))
+              item->no_rows_in_result();
+
+            // Mark tables as containing only NULL values
+            join->clear();
+	  }
+	  if (join->having && join->having->val_int() == 0) {
+	    error= -1;	
+          }// Didn't satisfy having
+	  else
+	  {
+	    if (join->do_send_rows) {
+                error=join->result->send_data(*fields) ? 1 : 0;
+            }
+	    join->send_records++;
+            join->group_sent= true;
+	  }
+	  if (join->rollup.state != ROLLUP::STATE_NONE && error <= 0)
+	  {
+	    if (join->rollup_send_data((uint) (idx+1))) {
+                error= 1;
+            }
+	  }
+          if (save_nullinfo)
+            restore_const_null_info(join, save_nullinfo);
+
+	}
+	if (error > 0)
+          DBUG_RETURN(NESTED_LOOP_ERROR);        /* purecov: inspected */
+	if (end_of_records) {
+	  DBUG_RETURN(NESTED_LOOP_OK);
+        }
+	if (join->send_records >= join->unit->select_limit_cnt &&
+	    join->do_send_rows)
+	{
+	  if (!(join->select_options & OPTION_FOUND_ROWS))
+	    DBUG_RETURN(NESTED_LOOP_QUERY_LIMIT); // Abort nicely
+	  join->do_send_rows=0;
+	  join->unit->select_limit_cnt = HA_POS_ERROR;
+        }
+        else if (join->send_records >= join->fetch_limit)
+        {
+          /*
+            There is a server side cursor and all rows
+            for this fetch request are sent.
+          */
+          /*
+            Preventing code duplication. When finished with the group reset
+            the group functions and copy_fields. We fall through. bug #11904
+          */
+          ok_code= NESTED_LOOP_CURSOR_LIMIT;
+        }
+      }
+    }
+    else
+    {
+      if (end_of_records) {
+          DBUG_RETURN(NESTED_LOOP_OK);
+      }
+      join->first_record=1;
+      (void)(test_if_item_cache_changed(join->group_fields));
+    }
+    if (idx < (int) join->send_group_parts)
+    {
+      /*
+        This branch is executed also for cursors which have finished their
+        fetch limit - the reason for ok_code.
+      */
+      copy_fields(&join->tmp_table_param);
+      if (init_sum_functions(join->sum_funcs, join->sum_funcs_end[idx+1]))
+	DBUG_RETURN(NESTED_LOOP_ERROR);
+      join->group_sent= false;
+      DBUG_RETURN(ok_code);
+    }
+  }
+  if (update_sum_func(join->sum_funcs))
+    DBUG_RETURN(NESTED_LOOP_ERROR);
+  DBUG_RETURN(NESTED_LOOP_OK);
+}
+
+/*GPU Accelerator*/
+
+enum_nested_loop_state
+end_send_group_accel(JOIN *join, JOIN_TAB *join_tab MY_ATTRIBUTE((unused)),
+           bool end_of_records)
+{
+  int idx= -1;
+  enum_nested_loop_state ok_code= NESTED_LOOP_OK;
+  List<Item> *fields= join_tab ? (join_tab-1)->fields : join->fields;
+  DBUG_ENTER("end_send_group_accel");
+
+
+  if (!join->items3.is_null() && !join->set_group_rpa)
+  {
+    join->set_group_rpa= true;
+    join->set_items_ref_array(join->items3);
+  }
+
+  if (!join->first_record || end_of_records ||
+      (idx=test_if_item_cache_changed(join->group_fields)) >= 0)
   {
     if (!join->group_sent &&
         (join->first_record ||
@@ -3575,19 +3799,22 @@ end_send_group(JOIN *join, JOIN_TAB *join_tab MY_ATTRIBUTE((unused)),
             // Mark tables as containing only NULL values
             join->clear();
 	  }
-	  if (join->having && join->having->val_int() == 0)
-	    error= -1;				// Didn't satisfy having
+	  if (join->having && join->having->val_int() == 0) {
+	    error= -1;	
+          }// Didn't satisfy having
 	  else
 	  {
-	    if (join->do_send_rows)
-	      error=join->result->send_data(*fields) ? 1 : 0;
+	    if (join->do_send_rows) {
+                error=join->result->send_data(*fields) ? 1 : 0;
+            }
 	    join->send_records++;
             join->group_sent= true;
 	  }
 	  if (join->rollup.state != ROLLUP::STATE_NONE && error <= 0)
 	  {
-	    if (join->rollup_send_data((uint) (idx+1)))
-	      error= 1;
+	    if (join->rollup_send_data((uint) (idx+1))) {
+                error= 1;
+            }
 	  }
           if (save_nullinfo)
             restore_const_null_info(join, save_nullinfo);
@@ -3595,8 +3822,9 @@ end_send_group(JOIN *join, JOIN_TAB *join_tab MY_ATTRIBUTE((unused)),
 	}
 	if (error > 0)
           DBUG_RETURN(NESTED_LOOP_ERROR);        /* purecov: inspected */
-	if (end_of_records)
+	if (end_of_records) {
 	  DBUG_RETURN(NESTED_LOOP_OK);
+        }
 	if (join->send_records >= join->unit->select_limit_cnt &&
 	    join->do_send_rows)
 	{
@@ -3621,8 +3849,9 @@ end_send_group(JOIN *join, JOIN_TAB *join_tab MY_ATTRIBUTE((unused)),
     }
     else
     {
-      if (end_of_records)
-	DBUG_RETURN(NESTED_LOOP_OK);
+      if (end_of_records) {
+          DBUG_RETURN(NESTED_LOOP_OK);
+      }
       join->first_record=1;
       (void)(test_if_item_cache_changed(join->group_fields));
     }
@@ -3635,127 +3864,6 @@ end_send_group(JOIN *join, JOIN_TAB *join_tab MY_ATTRIBUTE((unused)),
       copy_fields(&join->tmp_table_param);
       if (init_sum_functions(join->sum_funcs, join->sum_funcs_end[idx+1]))
 	DBUG_RETURN(NESTED_LOOP_ERROR);
-      join->group_sent= false;
-      DBUG_RETURN(ok_code);
-    }
-  }
-  if (update_sum_func(join->sum_funcs))
-    DBUG_RETURN(NESTED_LOOP_ERROR);
-  DBUG_RETURN(NESTED_LOOP_OK);
-}
-
-/*GPU Accelerator*/
-
-enum_nested_loop_state
-end_send_group_accel(JOIN *join, JOIN_TAB *join_tab MY_ATTRIBUTE((unused)),
-           bool end_of_records)
-{
-  int idx= -1;
-  enum_nested_loop_state ok_code= NESTED_LOOP_OK;
-  List<Item> *fields= join_tab ? (join_tab-1)->fields : join->fields;
-  DBUG_ENTER("end_send_group");
-
-
-  if (!join->items3.is_null() && !join->set_group_rpa)
-  {
-    join->set_group_rpa= true;
-    join->set_items_ref_array(join->items3);
-  }
-
-  if (!join->first_record || end_of_records ||
-      (idx=test_if_item_cache_changed(join->group_fields)) >= 0)
-  {
-    if (!join->group_sent &&
-        (join->first_record ||
-         (end_of_records && !join->group && !join->group_optimized_away)))
-    {
-      if (idx < (int) join->send_group_parts)
-      {
-    int error=0;
-    {
-          table_map save_nullinfo= 0;
-          if (!join->first_record)
-          {
-            /*
-              If this is a subquery, we need to save and later restore
-              the const table NULL info before clearing the tables
-              because the following executions of the subquery do not
-              reevaluate constant fields. @see save_const_null_info
-              and restore_const_null_info
-            */
-            if (join->select_lex->master_unit()->item && join->const_tables)
-              save_const_null_info(join, &save_nullinfo);
-
-            // Calculate aggregate functions for no rows
-            List_iterator_fast<Item> it(*fields);
-            Item *item;
-
-            while ((item= it++))
-              item->no_rows_in_result();
-
-            // Mark tables as containing only NULL values
-            join->clear();
-      }
-      if (join->having && join->having->val_int() == 0)
-        error= -1;              // Didn't satisfy having
-      else
-      {
-        if (join->do_send_rows)
-          error=join->result->send_data(*fields) ? 1 : 0;
-        join->send_records++;
-            join->group_sent= true;
-      }
-      if (join->rollup.state != ROLLUP::STATE_NONE && error <= 0)
-      {
-        if (join->rollup_send_data((uint) (idx+1)))
-          error= 1;
-      }
-          if (save_nullinfo)
-            restore_const_null_info(join, save_nullinfo);
-
-    }
-    if (error > 0)
-          DBUG_RETURN(NESTED_LOOP_ERROR);        /* purecov: inspected */
-    if (end_of_records)
-      DBUG_RETURN(NESTED_LOOP_OK);
-    if (join->send_records >= join->unit->select_limit_cnt &&
-        join->do_send_rows)
-    {
-      if (!(join->select_options & OPTION_FOUND_ROWS))
-        DBUG_RETURN(NESTED_LOOP_QUERY_LIMIT); // Abort nicely
-      join->do_send_rows=0;
-      join->unit->select_limit_cnt = HA_POS_ERROR;
-        }
-        else if (join->send_records >= join->fetch_limit)
-        {
-          /*
-            There is a server side cursor and all rows
-            for this fetch request are sent.
-          */
-          /*
-            Preventing code duplication. When finished with the group reset
-            the group functions and copy_fields. We fall through. bug #11904
-          */
-          ok_code= NESTED_LOOP_CURSOR_LIMIT;
-        }
-      }
-    }
-    else
-    {
-      if (end_of_records)
-    DBUG_RETURN(NESTED_LOOP_OK);
-      join->first_record=1;
-      (void)(test_if_item_cache_changed(join->group_fields));
-    }
-    if (idx < (int) join->send_group_parts)
-    {
-      /*
-        This branch is executed also for cursors which have finished their
-        fetch limit - the reason for ok_code.
-      */
-      copy_fields(&join->tmp_table_param);
-      if (init_sum_functions(join->sum_funcs, join->sum_funcs_end[idx+1]))
-    DBUG_RETURN(NESTED_LOOP_ERROR);
       join->group_sent= false;
       DBUG_RETURN(ok_code);
     }

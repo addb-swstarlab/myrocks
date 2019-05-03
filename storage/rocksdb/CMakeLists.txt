@@ -20,6 +20,7 @@ EXECUTE_PROCESS(
 STRING(REGEX MATCHALL "[^\n]+" ROCKSDB_LIB_SOURCES ${SCRIPT_OUTPUT})
 
 INCLUDE_DIRECTORIES(
+  /usr/local/cuda/include
   ${CMAKE_SOURCE_DIR}/rocksdb
   ${CMAKE_SOURCE_DIR}/rocksdb/include
   ${CMAKE_SOURCE_DIR}/rocksdb/accelerator

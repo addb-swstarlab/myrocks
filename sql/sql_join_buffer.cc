@@ -182,26 +182,20 @@ void JOIN_CACHE::calc_record_fields()
   data_field_ptr_count= 0;
   referenced_fields= 0;
 
-  int index =0;
   for ( ; tab < join_tab ; tab++)
   {
-	std::cout << "table num " <<index++<< std::endl;
     calc_used_field_length(join->thd, tab);
     flag_fields+= MY_TEST(tab->used_null_fields || tab->used_uneven_bit_fields);
     flag_fields+= MY_TEST(tab->table->maybe_null);
-    std::cout << "fields in used1 " << fields << std::endl;
     fields+= tab->used_fields;
     blobs+= tab->used_blobs;
-    std::cout << "fields in used2 " << fields << std::endl;
     fields+= tab->check_rowid_field();
-    std::cout << "fields in used3 " << fields << std::endl;
   }
   if ((with_match_flag= (join_tab->is_first_inner_for_outer_join() ||
                          (join_tab->first_sj_inner_tab == join_tab &&
                           join_tab->get_sj_strategy() == SJ_OPT_FIRST_MATCH))))
     flag_fields++;
   fields+= flag_fields;
-  std::cout << "fields in init " << fields << std::endl;
 }
 
 /* 
@@ -483,6 +477,8 @@ bool JOIN_CACHE::alloc_buffer()
     buff_size = gpu_buff_size;
   } else if (accelerated_mode == ACCEL_MODE_GPU) {
     buff_size = gpu_buff_size;
+  } else if (accelerated_mode == ACCEL_MODE_ASYNC) {
+    buff_size = gpu_buff_size;
   }
 
   std::cout << "buff_size is " << buff_size << std::endl;
@@ -521,7 +517,6 @@ int JOIN_CACHE_BNL::init()
 {
   DBUG_ENTER("JOIN_CACHE::init");
 
-  std::cout<< "Join Cache BNL " <<std::endl;
   calc_record_fields();
 
   if (alloc_fields(0))

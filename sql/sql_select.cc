@@ -1136,8 +1136,9 @@ mysql_execute_select(THD *thd, SELECT_LEX *select_lex, bool free_join)
     join->explain();
     free_join= false;
   }
-  else
-    join->exec();
+  else {
+    join->exec();    
+  }
 
 err:
   if (free_join)
@@ -2859,7 +2860,7 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
                                                          loosescan_key_len)))
         DBUG_RETURN(TRUE); /* purecov: inspected */
     }
-    std::cout << "table type = " << tab->type << std::endl;
+
     switch (tab->type) {
     case JT_EQ_REF:
     case JT_REF_OR_NULL:
@@ -2890,17 +2891,18 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
                                &icp_other_tables_ok))
         DBUG_RETURN(true);
 
-      if ((accelerated_mode == ACCEL_MODE_AVX) && strcmp(table->file->table_type(),"MEMORY")) {
-        std::cout << "tbl type : " << table->file->table_type() << std::endl;   
+      if (tab->use_join_cache != JOIN_CACHE::ALG_NONE) {       
+        if ((accelerated_mode == ACCEL_MODE_AVX) && strcmp(table->file->table_type(),"MEMORY")) {
     	  tab[-1].next_select=sub_select_avx;
-      } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK && strcmp(table->file->table_type(), "MEMORY")) {
-        tab[-1].next_select=sub_select_avxblock;
-      } else if (accelerated_mode == ACCEL_MODE_GPU && strcmp(table->file->table_type(), "MEMORY")) {
-        tab[-1].next_select=sub_select_gpu;
-      } else if (accelerated_mode == ACCEL_MODE_ASYNC && strcmp(table->file->table_type(), "MEMORY")) {
-        tab[-1].next_select=sub_select_gpuasync;
-      } else if (tab->use_join_cache != JOIN_CACHE::ALG_NONE) {
-        tab[-1].next_select=sub_select_op;
+        } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK && strcmp(table->file->table_type(), "MEMORY")) {
+          tab[-1].next_select=sub_select_avxblock;
+        } else if (accelerated_mode == ACCEL_MODE_GPU && strcmp(table->file->table_type(), "MEMORY")) {
+          tab[-1].next_select=sub_select_gpu;
+        } else if (accelerated_mode == ACCEL_MODE_ASYNC && strcmp(table->file->table_type(), "MEMORY")) {
+          tab[-1].next_select=sub_select_gpuasync;
+        } else {
+          tab[-1].next_select=sub_select_op;
+        }
       }
 
       /* These init changes read_record */
@@ -5479,9 +5481,10 @@ bool JOIN::make_tmp_tables_info()
   fields= curr_fields_list;
   // Reset before execution
   set_items_ref_array(items0);
-  if (join_tab)
+  if (join_tab) {     
     join_tab[primary_tables + tmp_tables - 1].next_select=
       setup_end_select_func(this, NULL);
+  }
   group= has_group_by;
 
   DBUG_RETURN(false);
