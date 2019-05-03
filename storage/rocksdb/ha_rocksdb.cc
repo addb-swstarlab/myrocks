@@ -11778,10 +11778,6 @@ int ha_rocksdb::ha_bulk_load_avx(int record_seq, uchar* buf) {
     DBUG_ENTER_FUNC();
     int rc = 0;
     int join_idx = -1;
-<<<<<<< HEAD
-=======
-    // std::cout << "ha_bulk_load_avx call " << std::endl;
->>>>>>> refs/remotes/origin/fb-mysql-5.6.35
 
     if (record_seq == 0) { // first input
         int idx = -1;
@@ -11945,11 +11941,6 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, uchar* buf) {
     DBUG_ENTER_FUNC();
     int rc = 0;
     int join_idx = -1;
-<<<<<<< HEAD
-    //std::cout << "ha_bulk_load_gpu call " << std::endl;
-=======
-    // std::cout << "ha_bulk_load_gpu call " << std::endl;
->>>>>>> refs/remotes/origin/fb-mysql-5.6.35
 
     // Non-first input case
     if (record_seq != 0) {
