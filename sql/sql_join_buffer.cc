@@ -471,7 +471,8 @@ bool JOIN_CACHE::alloc_buffer()
                    return true;
                   );
   if (accelerated_mode == ACCEL_MODE_AVX_BLOCK) {
-    buff_size = 32 << 10;
+    //buff_size = 32 << 10;
+      buff_size = 256 * 1024;
     //buff_size = 64 << 20;
   } else if (accelerated_mode == ACCEL_MODE_AVX) {
     buff_size = gpu_buff_size;

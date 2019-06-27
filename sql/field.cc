@@ -6982,7 +6982,7 @@ longlong Field_string::val_int(void)
 
 String *Field_string::val_str(String *val_buffer MY_ATTRIBUTE((unused)),
 			      String *val_ptr)
-{
+{  
   ASSERT_COLUMN_MARKED_FOR_READ;
   /* See the comment for Field_long::store(long long) */
   DBUG_ASSERT(table->in_use == current_thd);

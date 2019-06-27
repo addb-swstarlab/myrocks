@@ -2835,6 +2835,7 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
   if (setup_semijoin_dups_elimination(join, options, no_jbuf_after))
     DBUG_RETURN(TRUE); /* purecov: inspected */
 
+  std::cout << "const tables : " << join->const_tables << " table num : " << join->tables << std::endl;
   for (uint i= join->const_tables; i < join->tables; i++)
   {
     JOIN_TAB *const tab= join->join_tab+i;
@@ -2892,15 +2893,17 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
         DBUG_RETURN(true);
 
       if (tab->use_join_cache != JOIN_CACHE::ALG_NONE) {       
-        if ((accelerated_mode == ACCEL_MODE_AVX) && strcmp(table->file->table_type(),"MEMORY")) {
+        if ((accelerated_mode == ACCEL_MODE_AVX) && strcmp(table->file->table_type(),"MEMORY") && i <= join->primary_tables) {
     	  tab[-1].next_select=sub_select_avx;
-        } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK && strcmp(table->file->table_type(), "MEMORY")) {
+        } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
+          std::cout << " sub_select_avxblock " << i <<std::endl;
           tab[-1].next_select=sub_select_avxblock;
-        } else if (accelerated_mode == ACCEL_MODE_GPU && strcmp(table->file->table_type(), "MEMORY")) {
+        } else if (accelerated_mode == ACCEL_MODE_GPU && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
           tab[-1].next_select=sub_select_gpu;
-        } else if (accelerated_mode == ACCEL_MODE_ASYNC && strcmp(table->file->table_type(), "MEMORY")) {
+        } else if (accelerated_mode == ACCEL_MODE_ASYNC && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
           tab[-1].next_select=sub_select_gpuasync;
         } else {
+            std::cout << " sub_select " << i <<std::endl;
           tab[-1].next_select=sub_select_op;
         }
       }

@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <iostream>
 
 /* MySQL header files */
 #include "./handler.h"   /* handler */
@@ -629,14 +630,36 @@ class ha_rocksdb : public my_core::handler {
   */
   int m_dupp_errkey;
 
+  class schema_context {
+    public :
+      schema_context() : pivot(LONG_MAX), str_num(0), idx(-1), cond("INVALID"), find(false) {
+          memset(cpivot, 0, sizeof(char) * 32 * 10);
+      }
+      
+      void ToString() {
+          for(int i = 0; i < str_num; i++) {
+              std:: cout << "member [" << i + 1 << "] = "  << cpivot[i] << std::endl; 
+          }
+      }
+    
+      long pivot;
+      char cpivot[10][32];
+      int str_num;
+      int idx;
+      std::string cond;
+      bool find;
+  };
+  
   /* GPU Accelerator */
-  std::vector <rocksdb::Slice> gkeys;
+  std::vector <rocksdb::PinnableSlice> gkeys;
   //std::vector <rocksdb::Slice> gvalues;
   std::vector <rocksdb::PinnableSlice> avxValues;
   std::vector <rocksdb::PinnableSlice> pvalues;
   std::vector <rocksdb::PinnableSlice> *asyncValues;
+  rocksdb::SlicewithSchema* table_key;
   //rocksdb::GPUManager * gpu_handle;
 
+  int ha_release_key() override;
   int ha_bulk_load_avx(int record_seq, uchar * buf) override;
   bool ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_num, uchar * buf) override;
   int ha_bulk_load_gpu(int record_seq, uchar * buf) override;
@@ -645,11 +668,14 @@ class ha_rocksdb : public my_core::handler {
   std::string ha_return_key(std::string * _cond, long * _pivot, int * _target, std::vector<uint> * _type,
           std::vector<uint> * _length, std::vector<uint> * _skip) override;
   int ha_convert_record(int join_idx, void* gpu_handler, uchar * buf) override;
+  
+  void generate_tbl_key();
   void split_from_string(std::string delimiter, std::string target, std::vector<std::string> &ret);
   accelerator::Operator condToOp(std::string cond);
   void calculate_parm(std::string cond_str, long * pivot,
           int * idx, std::string * cond);
-
+  static void print_cond(const Item * item, void * arg);
+  
   int create_key_defs(const TABLE *const table_arg,
                       Rdb_tbl_def *const tbl_def_arg,
                       const TABLE *const old_table_arg = nullptr,
@@ -925,7 +951,7 @@ public:
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   /* GPU Accelerator */
-  int convert_record_from_storage_format_gpu(const rocksdb::Slice *const key,
+  int convert_record_from_storage_format_gpu(const rocksdb::PinnableSlice *const key,
                                          rocksdb::PinnableSlice * value,
 										 uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));

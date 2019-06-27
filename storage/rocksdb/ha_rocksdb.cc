@@ -2535,6 +2535,7 @@ public:
 
   virtual rocksdb::Status value_filter(rocksdb::ColumnFamilyHandle *const column_family,
                               const rocksdb::SlicewithSchema &key,
+                              std::vector<rocksdb::PinnableSlice> &keys,
                               std::vector<rocksdb::PinnableSlice> &values, int join_idx) const { rocksdb::Status s; return s;};
 
   virtual rocksdb::Status async_filter(rocksdb::ColumnFamilyHandle *const column_family,
@@ -2913,6 +2914,7 @@ public:
 
   rocksdb::Status value_filter(rocksdb::ColumnFamilyHandle *const column_family,
                       const rocksdb::SlicewithSchema &key,
+                      std::vector<rocksdb::PinnableSlice> &keys,
                       std::vector<rocksdb::PinnableSlice> &values, int join_idx) const override {
     // clean PinnableSlice right begfore Get() for multiple gets per statement
     // the resources after the last Get in a statement are cleared in
@@ -2929,7 +2931,7 @@ public:
     } else if (accelerated_mode == ACCEL_MODE_ASYNC) {
         vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::ASYNC;
     }
-    return m_rocksdb_tx->ValueFilter(vf_read_opts, column_family, key, values, join_idx);
+    return m_rocksdb_tx->ValueFilter(vf_read_opts, column_family, key, keys, values, join_idx);
   }
 
   rocksdb::Status async_filter(rocksdb::ColumnFamilyHandle *const column_family,
@@ -5602,7 +5604,7 @@ ha_rocksdb::ha_rocksdb(my_core::handlerton *const hton,
       m_sk_match_prefix(nullptr), m_sk_match_prefix_buf(nullptr),
       m_sk_packed_tuple_old(nullptr), m_dup_sk_packed_tuple(nullptr),
       m_dup_sk_packed_tuple_old(nullptr), m_pack_buffer(nullptr),
-      m_lock_rows(RDB_LOCK_NONE), m_keyread_only(FALSE), m_encoder_arr(nullptr),
+      m_lock_rows(RDB_LOCK_NONE), m_keyread_only(FALSE), table_key(nullptr), m_encoder_arr(nullptr),
       m_row_checksums_checked(0), m_in_rpl_delete_rows(false),
       m_in_rpl_update_rows(false), m_force_skip_unique_check(false) {}
 
@@ -6124,18 +6126,20 @@ int ha_rocksdb::convert_field_from_storage_format(
 /* GPU Accelerator */
 
 int ha_rocksdb::convert_record_from_storage_format_gpu(
-    const rocksdb::Slice *const key, rocksdb::PinnableSlice * value, uchar * buf) {
+    const rocksdb::PinnableSlice *const key, rocksdb::PinnableSlice * value, uchar * buf) {
   Rdb_string_reader reader(value);
-
   //std::cout << "Slice contents " << value->ToString(1) << std::endl;
   /*
     Decode PK fields from the key
   */
+  m_last_rowkey.copy(key->data(), key->size(), &my_charset_bin);
+
   DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_read1",
                   dbug_modify_key_varchar8(m_last_rowkey););
 
   const rocksdb::Slice rowkey_slice(m_last_rowkey.ptr(),
                                     m_last_rowkey.length());
+   
   const char *unpack_info = nullptr;
   uint16 unpack_info_len = 0;
   rocksdb::Slice unpack_slice;
@@ -6209,7 +6213,7 @@ int ha_rocksdb::convert_record_from_storage_format_gpu(
       if (decode) {
         field->set_notnull();
       }
-
+    
       if (field_dec->m_field_type == MYSQL_TYPE_BLOB) {
         err = convert_blob_from_storage_format(
             (my_core::Field_blob *) field, &reader, decode);
@@ -6221,7 +6225,6 @@ int ha_rocksdb::convert_record_from_storage_format_gpu(
             field, &reader, decode, field_dec->m_pack_length_in_rec);
       }
     }
-
     // Restore field->ptr and field->null_ptr
     field->move_field(table->record[0] + field_offset,
                       maybe_null ? table->record[0] + null_offset : nullptr,
@@ -6273,6 +6276,7 @@ int ha_rocksdb::convert_record_from_storage_format(
 
   const rocksdb::Slice rowkey_slice(m_last_rowkey.ptr(),
                                     m_last_rowkey.length());
+  
   const char *unpack_info = nullptr;
   uint16 unpack_info_len = 0;
   rocksdb::Slice unpack_slice;
@@ -8227,7 +8231,9 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
   DBUG_ENTER_FUNC();
 
   int rc = 0;
-
+//  std::cout << "index_read_map_impl : active_index " << active_index << " primary_key " << table->s->primary_key <<std::endl;
+//  std::cout << "index_read_map_impl : active_index " << table->key_info[active_index].name <<std::endl;
+    
   ha_statistic_increment(&SSV::ha_read_key_count);
   const Rdb_key_def &kd = *m_key_descr_arr[active_index];
   const uint actual_key_parts = kd.get_key_parts();
@@ -8309,12 +8315,13 @@ int ha_rocksdb::index_read_map_impl(uchar *const buf, const uchar *const key,
 
   rocksdb::Slice slice(reinterpret_cast<const char *>(m_sk_packed_tuple),
                        packed_size);
+  
 
   uint end_key_packed_size = 0;
   const uint eq_cond_len =
       calc_eq_cond_len(kd, find_flag, slice, bytes_changed_by_succ, end_key,
                        &end_key_packed_size);
-
+ 
   bool use_all_keys = false;
   if (find_flag == HA_READ_KEY_EXACT &&
       my_count_bits(keypart_map) == kd.get_key_parts())
@@ -8852,6 +8859,7 @@ int ha_rocksdb::index_next_with_direction(uchar *const buf, bool move_forward) {
     }
     rocksdb_skip_expired_records(*m_key_descr_arr[active_index], m_scan_it,
                                  !move_forward);
+
     rc = find_icp_matching_index_rec(move_forward, buf);
     if (!rc)
       rc = secondary_index_read(active_index, buf);
@@ -11779,69 +11787,20 @@ int ha_rocksdb::ha_bulk_load_avx(int record_seq, uchar* buf) {
     int rc = 0;
     int join_idx = -1;
 
-    if (record_seq == 0) { // first input
-        int idx = -1;
-        int target = -1;
-        long pivot = LONG_MAX;
-        std::string cond = "INVALID";
-
-        Item * item = const_cast<Item *>(pushed_cond);
-        std::string cond_str(make_cond_str(item));
-        //std::cout << "condition str = " << cond_str << std::endl;
-
-        if (check_cond_not_null(cond_str)) {
-           calculate_parm(cond_str, &pivot, &idx, &cond);
-        }
-
-        //std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
-        gkeys.clear();
-        avxValues.clear();
-
-        Rdb_transaction * const tx = get_or_create_tx(table->in_use);
-        DBUG_ASSERT(tx != nullptr);
-
-        unsigned int size = m_decoders_vect.size();
-        std::vector<uint> type(size);
-        std::vector<uint> length(size);
-        std::vector<uint> skip(size);
-        unsigned int field_idx = 0;
-
-        for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end();
-                it++) {
-            const Rdb_field_encoder * const field_dec = it->m_field_enc;
-
-            if (field_dec->m_field_index == idx) {
-                target = field_idx;
-            }
-
-            /* field type */
-            type[field_idx] = typeToInt(field_dec->m_field_type);
-            skip[field_idx] = it->m_skip;
-
-            /* field length */
-            if (field_dec->uses_variable_len_encoding()) {
-                my_core::Field_varstring * f =
-                        reinterpret_cast<my_core::Field_varstring *>(table->field[field_dec->m_field_index]);
-                length[field_idx] = f->length_bytes;
-
-            } else {
-                length[field_idx] = field_dec->m_pack_length_in_rec;
-            }
-
-            field_idx++;
-        }
-
-        accelerator::FilterContext ctx { condToOp(cond), pivot };
-        rocksdb::SlicewithSchema table_key((const char *) m_pk_packed_tuple, 4,
-                ctx, target, type, length, skip);
-
+    if (!record_seq) { // first input
+        if (table_key == nullptr) generate_tbl_key();
         //std::cout << "table name : " << table->alias << std::endl;
         //std::cout << "table key : " << table_key.ToString(1) << std::endl;
 
+        Rdb_transaction * const tx = get_or_create_tx(table->in_use);
+        DBUG_ASSERT(tx != nullptr);
+        
+        gkeys.clear();
+        avxValues.clear();
         rocksdb::Status s = tx->value_filter(
-            m_pk_descr->get_cf(), table_key, avxValues, join_idx);
+            m_pk_descr->get_cf(), *table_key, gkeys, avxValues, join_idx);
 
-        //std::cout << "avx size = " << avxValues.size() << std::endl;
+        std::cout << "avx size = " << avxValues.size() << std::endl;
         rc = avxValues.size();
 
     } else {
@@ -11859,78 +11818,30 @@ bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_n
     bool end_table = false;
 
     if (!record_seq) { // first input
-        int idx = -1;
-        int target = -1;
-        long pivot = LONG_MAX;
-        std::string cond = "INVALID";
-
-        Item * item = const_cast<Item *>(pushed_cond);
-        std::string cond_str(make_cond_str(item));
-        //std::cout << "condition str = " << cond_str << std::endl;
-
-        if (check_cond_not_null(cond_str)) {
-           calculate_parm(cond_str, &pivot, &idx, &cond);
-        }
+//        std::cout << "table name : " << table->alias << std::endl;
+//        std::cout << "join_idx : " << join_idx << std::endl;
+        if (table_key == nullptr) generate_tbl_key();
+        //std::cout << "table key : " << table_key->ToString(1) << std::endl;
         
-        //std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
-        gkeys.clear();
-        //gvalues.clear();
-        //pvalues.clear();
-
         Rdb_transaction * const tx = get_or_create_tx(table->in_use);
         DBUG_ASSERT(tx != nullptr);
-
-        unsigned int size = m_decoders_vect.size();
-        std::vector<uint> type(size);
-        std::vector<uint> length(size);
-        std::vector<uint> skip(size);
-        unsigned int field_idx = 0;
-
-        for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end();
-                it++) {
-            const Rdb_field_encoder * const field_dec = it->m_field_enc;
-
-            if (field_dec->m_field_index == idx) {
-                target = field_idx;
-            }
-
-            /* field type */
-            type[field_idx] = typeToInt(field_dec->m_field_type);
-            skip[field_idx] = it->m_skip;
-
-            /* field length */
-            if (field_dec->uses_variable_len_encoding()) {
-                my_core::Field_varstring * f =
-                        reinterpret_cast<my_core::Field_varstring *>(table->field[field_dec->m_field_index]);
-                length[field_idx] = f->length_bytes;
-
-            } else {
-                length[field_idx] = field_dec->m_pack_length_in_rec;
-            }
-
-            field_idx++;
-        }
-
-        accelerator::FilterContext ctx { condToOp(cond), pivot };
-        rocksdb::SlicewithSchema table_key((const char *) m_pk_packed_tuple, 4,
-                ctx, target, type, length, skip);
-
-        //std::cout << "table name : " << table->alias << std::endl;
-        //std::cout << "table key : " << table_key.ToString(1) << std::endl;
-
+        
         rocksdb::Status s = tx->value_filter(
-            m_pk_descr->get_cf(), table_key, pvalues, join_idx);
+            m_pk_descr->get_cf(), *table_key, gkeys, pvalues, join_idx);
 
         *val_num = pvalues.size();
+        
         if(s.IsTableEnd()) end_table = true;
 
     } else {
 //        convert_record_from_storage_format_gpu(&gkeys[record_seq - 1],
 //                &(pvalues.back()), buf);
-         int rc = convert_record_from_storage_format_gpu(&gkeys[0],
+         int rc = convert_record_from_storage_format_gpu(&(gkeys.back()),
                 &(pvalues.back()), buf);
+         gkeys.pop_back();
          pvalues.pop_back();
          *val_num = pvalues.size();
+         //std::cout << "rc = " << rc <<std::endl;
          if(rc) assert(0);
     }
 
@@ -11945,70 +11856,24 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, uchar* buf) {
     // Non-first input case
     if (record_seq != 0) {
       rc = convert_record_from_storage_format_gpu(
-          &gkeys[record_seq - 1], &avxValues[record_seq - 1], buf);
+         &(gkeys.back()), &(pvalues.back()), buf);
+      gkeys.pop_back();
+      pvalues.pop_back();
       DBUG_RETURN(rc);
     }
-
-    // first input case
-    int idx = -1;
-    int target = -1;
-    long pivot = LONG_MAX;
-    std::string cond = "INVALID";
-
-    Item * item = const_cast<Item *>(pushed_cond);
-    std::string cond_str(make_cond_str(item));
-    //std::cout << "condition str = " << cond_str << std::endl;
-
-    if (check_cond_not_null(cond_str)) {
-        calculate_parm(cond_str, &pivot, &idx, &cond);
-    }
-
-    //std::cout << "cal_after : pivot : " << pivot << " idx : " << idx << " condition : " << cond << std::endl;
-    gkeys.clear();
-    avxValues.clear();
-
+    
     Rdb_transaction * const tx = get_or_create_tx(table->in_use);
     DBUG_ASSERT(tx != nullptr);
+    
+    if (table_key == nullptr) generate_tbl_key();
 
-    unsigned int size = m_decoders_vect.size();
-    std::vector<uint> type(size);
-    std::vector<uint> length(size);
-    std::vector<uint> skip(size);
-
-    for (size_t i = 0; i < m_decoders_vect.size(); ++i) {
-      myrocks::ha_rocksdb::READ_FIELD &field = m_decoders_vect[i];
-      const Rdb_field_encoder * const field_dec = field.m_field_enc;
-
-      if (field_dec->m_field_index == idx) {
-        target = i;
-      }
-
-      /* field type */
-      type[i] = typeToInt(field_dec->m_field_type);
-      skip[i] = field.m_skip;
-
-      /* field length */
-      if (field_dec->uses_variable_len_encoding()) {
-        my_core::Field_varstring *f =
-                reinterpret_cast<my_core::Field_varstring *>(table->field[field_dec->m_field_index]);
-        length[i] = f->length_bytes;
-      } else {
-        length[i] = field_dec->m_pack_length_in_rec;
-      }
-    }
-
-    accelerator::FilterContext ctx { condToOp(cond), pivot };
-    rocksdb::SlicewithSchema table_key(
-        (const char *) m_pk_packed_tuple, 4, ctx, target, type, length, skip);
-
-    //std::cout << "table name : " << table->alias << std::endl;
-    //std::cout << "table key : " << table_key.ToString(1) << std::endl;
-
+    gkeys.clear();
+    pvalues.clear();
     rocksdb::Status s = tx->value_filter(
-        m_pk_descr->get_cf(), table_key, avxValues, join_idx);
+        m_pk_descr->get_cf(), *table_key, gkeys, pvalues, join_idx);
 
-    //std::cout << "value size = " << avxValues.size() << std::endl;
-    rc = avxValues.size();
+    std::cout << "value size in gpu = " << pvalues.size() << std::endl;
+    rc = pvalues.size();
 
     DBUG_RETURN(rc);
 }
@@ -12018,33 +11883,33 @@ int ha_rocksdb::ha_bulk_load_gpuasync(uint table_num, std::vector<std::string> t
     DBUG_ENTER_FUNC();
     int rc = 0;
 
-    std::vector<rocksdb::SlicewithSchema> table_keys;
-
-    for(uint i = 0; i < table_num; i++) {
-       std::cout << i << " th async cond = " << conds[i] << " pivot = " << pivots[i] <<std::endl;
-       accelerator::FilterContext ctx { condToOp(conds[i]), pivots[i] };
-       rocksdb::SlicewithSchema table_key(tbl_keys[i].data(), tbl_keys[i].size(), ctx,
-               targets[i], types[i], lengths[i], skips[i]);
-       std::cout << i << " th async table_key " << table_key.ToString(1) << std::endl;
-       for(uint j = 0; j < types[i].size(); j++)
-          std::cout << i << " th async type " << j << "th " << types[i][j] << " " << lengths[i][j] << " " << skips[i][j] << std::endl;
-       table_keys.push_back(std::move(table_key));
-    }
-
-    *gpu_handler= new rocksdb::GPUManager(table_num, true, &table_keys, 4);
-
-    for(uint k =0 ; k < table_num; k++)
-    std::cout << " GPU Manager table_num = " << table_num << " table_keys "
-            << (*(((rocksdb::GPUManager *)*gpu_handler)->schemakey))[k].ToString(1) <<std::endl;
-
-    Rdb_transaction * const tx = get_or_create_tx(table->in_use);
-    DBUG_ASSERT(tx != nullptr);
-
-    rocksdb::Status s = tx->async_filter(
-        m_pk_descr->get_cf(), (rocksdb::GPUManager *)*gpu_handler);
-
-    std::cout << "value size = " << avxValues.size() << std::endl;
-    rc = avxValues.size();
+//    std::vector<rocksdb::SlicewithSchema> table_keys;
+//
+//    for(uint i = 0; i < table_num; i++) {
+//       std::cout << i << " th async cond = " << conds[i] << " pivot = " << pivots[i] <<std::endl;
+//       accelerator::FilterContext ctx { condToOp(conds[i]), pivots[i] };
+//       rocksdb::SlicewithSchema table_key(tbl_keys[i].data(), tbl_keys[i].size(), ctx,
+//               targets[i], types[i], lengths[i], skips[i]);
+//       std::cout << i << " th async table_key " << table_key.ToString(1) << std::endl;
+//       for(uint j = 0; j < types[i].size(); j++)
+//          std::cout << i << " th async type " << j << "th " << types[i][j] << " " << lengths[i][j] << " " << skips[i][j] << std::endl;
+//       table_keys.push_back(std::move(table_key));
+//    }
+//
+//    *gpu_handler= new rocksdb::GPUManager(table_num, true, &table_keys, 4);
+//
+//    for(uint k =0 ; k < table_num; k++)
+//    std::cout << " GPU Manager table_num = " << table_num << " table_keys "
+//            << (*(((rocksdb::GPUManager *)*gpu_handler)->schemakey))[k].ToString(1) <<std::endl;
+//
+//    Rdb_transaction * const tx = get_or_create_tx(table->in_use);
+//    DBUG_ASSERT(tx != nullptr);
+//
+//    rocksdb::Status s = tx->async_filter(
+//        m_pk_descr->get_cf(), (rocksdb::GPUManager *)*gpu_handler);
+//
+//    std::cout << "value size = " << avxValues.size() << std::endl;
+//    rc = avxValues.size();
 
     DBUG_RETURN(rc);
 }
@@ -12111,6 +11976,83 @@ int ha_rocksdb::ha_convert_record(int join_idx, void *gpu_handler, uchar* buf) {
     return rc;
 }
 
+void ha_rocksdb::generate_tbl_key() {
+    std::cout << "generate_tbl_key " << std::endl;
+//    int idx = -1;
+    int target = -1;
+//    long pivot = LONG_MAX;
+   // std::string cond = "INVALID";
+
+    //Cond_traverser visitor = print_cond;
+     
+    Item * item = const_cast<Item *>(pushed_cond);
+    ha_rocksdb::schema_context context;
+       
+    if(item) {
+        item->traverse_cond(&print_cond, (void *) &context, Item::PREFIX);
+    }
+    
+//    std::string cond_str(make_cond_str(item));
+//    std::cout << "condition str = " << cond_str << std::endl;
+
+//    if (check_cond_not_null(cond_str)) {
+//        calculate_parm(cond_str, &pivot, &idx, &cond);
+//    }
+      
+    std::cout << "cal_after : pivot : " << context.pivot << " idx : " << context.idx << " condition : " << context.cond << std::endl;
+    context.ToString();
+    //gkeys.clear();
+    //gvalues.clear();
+    //pvalues.clear();
+
+    unsigned int size = m_decoders_vect.size();
+    std::vector<uint> type(size);
+    std::vector<uint> length(size);
+    std::vector<uint> skip(size);
+    unsigned int field_idx = 0;
+
+    for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end();
+            it++) {
+        //std::cout << " idx = " << ++tidx << std::endl;
+        const Rdb_field_encoder * const field_dec = it->m_field_enc;
+
+        if (field_dec->m_field_index == context.idx) {
+            target = field_idx;
+            //std::cout << " target = " << target << std::endl;
+        }
+
+        /* field type */
+        type[field_idx] = typeToInt(field_dec->m_field_type);
+        skip[field_idx] = it->m_skip;
+        std::cout << " type = " << typeToInt(field_dec->m_field_type) << std::endl; 
+        std::cout << " skip = " << it->m_skip << std::endl;
+
+        /* field length */
+        if (field_dec->uses_variable_len_encoding()) {
+            my_core::Field_varstring * f =
+                    reinterpret_cast<my_core::Field_varstring *>(table->field[field_dec->m_field_index]);
+            length[field_idx] = f->length_bytes;
+            std::cout << " length variable = " << f->length_bytes << std::endl;
+        } else {
+            length[field_idx] = field_dec->m_pack_length_in_rec;
+            std::cout << " length non variable = " << field_dec->m_pack_length_in_rec << std::endl;
+        }
+
+        field_idx++;
+    }
+
+    accelerator::FilterContext ctx { condToOp(context.cond), context.pivot, context.str_num, {0,} };
+    memcpy(&ctx.cpivot, &context.cpivot, sizeof(char) * 32 * 10 );
+    table_key = new rocksdb::SlicewithSchema((const char *) m_pk_packed_tuple, 4,
+            ctx, target, type, length, skip);
+}
+
+int ha_rocksdb::ha_release_key() {
+    //std::cout << "release key" << std::endl;
+    delete table_key;
+    table_key = nullptr;
+    return 0;
+}
 
 
 /* split_from_string function parse condition string to transfer filter information to rocksdb */
@@ -12141,6 +12083,10 @@ accelerator::Operator ha_rocksdb::condToOp(std::string cond) {
         return accelerator::LESS_EQ;
     else if (!cond.compare("="))
         return accelerator::EQ;
+    else if (!cond.compare("<>"))
+        return accelerator::NOT_EQ;
+    else if (!cond.compare("=="))
+        return accelerator::MATCH;
     else
         return accelerator::INVALID;
 }
@@ -12160,11 +12106,18 @@ void ha_rocksdb::calculate_parm(std::string cond_str, long * pivot,
 
     for (iter = conditions.begin(); iter != conditions.end(); ++iter) {
         std::vector<std::string> check;
+        std::cout << "[condition] " << *iter << std::endl; 
         split_from_string(".", *iter, check);
+        for(iter2 = check.begin(); iter2 != check.end(); ++iter2)
+            std::cout << "[check] " << *iter2 << std::endl;
 
         std::vector<std::string> ret;
         split_from_string(" ", check[2], ret);
+        
+        for(iter3 = ret.begin(); iter3 != ret.end(); ++iter3)
+            std::cout << "[ret] " << *iter3 << std::endl;
 
+        std::cout << "[ret length] " << ret[0].length() << std::endl;
         for (ptr = table->field; (field = *ptr); ptr++) {
             std::string field_name = ret[0].substr(1, ret[0].length() - 2);
             if (!field_name.compare(field->field_name)) {
@@ -12172,6 +12125,7 @@ void ha_rocksdb::calculate_parm(std::string cond_str, long * pivot,
                 *idx = field->field_index;
             }
         }
+        std::cout << "[type] " << type << std::endl;
         if (type == 3) { // long type
             int num_brk = 0;
             for (int i = ret[2].length() - 1; i >= 0; i--) {
@@ -12187,11 +12141,14 @@ void ha_rocksdb::calculate_parm(std::string cond_str, long * pivot,
                 break;
             }
         } else if (type == 10) { // DATE type
-            *cond = ret[1];
             long year, month, day = 0;
             int plus, minus = -1;
 
             size_t pos = ret[2].find("-");
+            if(pos == std::string::npos) break; 
+            
+            *cond = ret[1];
+            
             year = atol(ret[2].substr(pos - 4, pos - 1).c_str());
             month = atol(ret[2].substr(pos + 1, pos + 3).c_str());
             day = atol(ret[2].substr(pos + 4, pos + 6).c_str());
@@ -12211,8 +12168,151 @@ void ha_rocksdb::calculate_parm(std::string cond_str, long * pivot,
             *pivot = day + month * 32 + year * 16 * 32;
             break;
         }
+//        else if (type == 254) {
+//            int num_brk = 0;
+//            for (int i = ret[2].length() - 1; i >= 0; i--) {
+//              if (ret[2].at(i) == ')') {
+//                num_brk++;
+//              } else {
+//                break;
+//              }
+//            }
+//            if ((*pivot = atol(
+//                    ret[2].substr(1, ret[2].length() - num_brk - 1).c_str()))) {
+//                *cond = ret[1];
+//                std::cout << "pivot = " << *pivot << std::endl; 
+//                break;
+//            }            
+//        }
     }
 }
+
+void ha_rocksdb::print_cond(const Item * item, void * arg) {    
+    if(!item) return;
+ 
+    if(item->type() == Item::Type::FUNC_ITEM) {
+        schema_context *ctx = (schema_context *) arg;
+        if (ctx->find == true) return;
+ 
+        Item_func * func = (Item_func * )item;
+        int arg_count = func->arg_count;
+       
+        if(arg_count) {
+            Item** args = func->arguments();
+            enum_field_types type = args[0]->field_type();
+            std::cout << "type = " << type <<std::endl;
+
+            /* TODO: field func field */
+            if(((type == MYSQL_TYPE_LONG) || (type == MYSQL_TYPE_FLOAT)) && (args[1]->type() != Item::Type::FIELD_ITEM )) {
+              
+              ctx->idx = ((Item_field *)args[0])->get_field()->field_index;
+              ctx->pivot = args[1]->val_int();
+              ctx->cond = func->func_name();
+              std::cout << "type = " << type <<std::endl;
+              ctx->find = true;
+              
+            } else if ((type == MYSQL_TYPE_DATE) && (args[1]->type() != Item::Type::FIELD_ITEM )) {
+                
+              ctx->idx = ((Item_field *)args[0])->get_field()->field_index;
+              longlong date_literal = args[1]->val_int();
+              longlong year, month, day;
+              year = date_literal / 10000;
+              month = (date_literal - (year * 10000)) / 100;
+              day = date_literal % 100;
+
+              ctx->pivot = (year * 16 * 32) + (month * 32) + day;
+              
+              ctx->cond = func->func_name();
+              ctx->find = true;
+                
+            } else if ((type == MYSQL_TYPE_STRING) && (args[1]->type() != Item::Type::FIELD_ITEM )) {
+                
+                Item_func::Functype func_type = func->functype();
+                char * str;
+                uint32 length = 0;
+                
+                if (func_type == Item_func::Functype::IN_FUNC) {
+                  ctx->idx = ((Item_field *)args[0])->get_field()->field_index;
+                  ctx->str_num = arg_count - 1;
+                  std::cout << "str_num = " << ctx->str_num << std::endl;
+                  
+                  for(int i = 1; i < arg_count; i++) {
+                    str = ((Item_string *)args[i])->str_value.c_ptr();
+                    length = ((Item_string *)args[i])->str_value.length();
+                    memcpy(&ctx->cpivot[i-1], str, length);                      
+                  }
+
+                  ctx->cond = "==";
+                  ctx->find = true;                               
+                  
+                } else if (func_type == Item_func::Functype::EQ_FUNC) {
+                  ctx->idx = ((Item_field *)args[0])->get_field()->field_index;
+                  ctx->str_num = arg_count - 1;
+                  std::cout << "str_num = " << ctx->str_num << std::endl;
+
+                  str = ((Item_string *)args[1])->str_value.c_ptr();
+                  length = ((Item_string *)args[1])->str_value.length();
+                  
+                  memcpy(&ctx->cpivot[0], str, length);
+                  ctx->cond = "==";
+                  ctx->find = true;  
+                }
+                
+            } else return;
+            
+            if(ctx->cond == "between") ctx->cond = ">=";
+                        
+//            switch (func->functype()) {
+//                case Item_func::Functype::EQ_FUNC:    break;                         
+//                case Item_func::Functype::GE_FUNC:    break;
+//                case Item_func::Functype::GT_FUNC:    break;
+//                case Item_func::Functype::LE_FUNC:    break;
+//                case Item_func::Functype::LT_FUNC:    break;
+//                case Item_func::Functype::NE_FUNC:    break;
+//                default : break;
+//                    
+//            }         
+        }     
+    }
+    
+//    Field **ptr;
+//    Field * field;
+//    
+//    for (ptr = table->field; (field = *ptr); ptr++) {
+//        std::string field_name = ret[0].substr(1, ret[0].length() - 2);
+//        if (!field_name.compare(field->field_name)) {
+//            type = typeToInt(field->type());
+//            *idx = field->field_index;
+//        }
+//    }
+// 
+ 
+    
+//    try {
+//      std::cout << "Item name : " << typeid(*item).name() << " Item type : " << item->type() << std::endl;
+//      if(item->type() == Item::Type::FUNC_ITEM) {
+//         Item_func * func = (Item_func * )item;
+//       
+//        if(func->arg_count) {
+//            Item** args = func->arguments();
+//            enum_field_types type = args[0]->field_type();
+//            if (type == MYSQL_TYPE_STRING) {
+//              for (uint i = 0; i < func->arg_count; i++) {
+//                std::cout << "field type = " << type << " args[" << i << "] val int " << args[i]->val_int() <<std::endl;
+//                char temp[32] = {0,};
+//                char * str = ((Item_string *)args[i])->str_value.c_ptr();
+//                uint32 length = ((Item_string *)args[i])->str_value.length();
+//                memcpy(temp, str, length);
+//                std::cout << "str = " << temp << " length = " << length << std::endl;
+//              }
+//            }
+//        }
+//      }
+//      
+//    } catch (const std::bad_typeid& e) {
+//      std::cout << e.what() << std::endl;
+//    }
+ }
 
 /**
   SQL layer calls this function to push an index condition.
