@@ -12041,8 +12041,9 @@ void ha_rocksdb::generate_tbl_key() {
         field_idx++;
     }
 
-    accelerator::FilterContext ctx { condToOp(context.cond), context.pivot, context.str_num, {0,} };
+    accelerator::FilterContext ctx { condToOp(context.cond), context.pivot, context.str_num, {0,}, {0,} };
     memcpy(&ctx.cpivot, &context.cpivot, sizeof(char) * 32 * 10 );
+    memcpy(&ctx.pivots, &context.pivots, sizeof(long long) * 10 );
     table_key = new rocksdb::SlicewithSchema((const char *) m_pk_packed_tuple, 4,
             ctx, target, type, length, skip);
 }
@@ -12187,6 +12188,8 @@ void ha_rocksdb::calculate_parm(std::string cond_str, long * pivot,
     }
 }
 
+
+
 void ha_rocksdb::print_cond(const Item * item, void * arg) {    
     if(!item) return;
  
@@ -12239,6 +12242,9 @@ void ha_rocksdb::print_cond(const Item * item, void * arg) {
                   for(int i = 1; i < arg_count; i++) {
                     str = ((Item_string *)args[i])->str_value.c_ptr();
                     length = ((Item_string *)args[i])->str_value.length();
+                    std::string hstr;
+                    hstr.assign(str, length);
+                    ctx->pivots[i-1] = compute_hash(hstr);
                     memcpy(&ctx->cpivot[i-1], str, length);                      
                   }
 
@@ -12253,6 +12259,10 @@ void ha_rocksdb::print_cond(const Item * item, void * arg) {
                   str = ((Item_string *)args[1])->str_value.c_ptr();
                   length = ((Item_string *)args[1])->str_value.length();
                   
+                  std::string hstr;
+                  hstr.assign(str, length);
+                  ctx->pivots[0] = compute_hash(hstr);
+                  
                   memcpy(&ctx->cpivot[0], str, length);
                   ctx->cond = "==";
                   ctx->find = true;  
@@ -12261,32 +12271,9 @@ void ha_rocksdb::print_cond(const Item * item, void * arg) {
             } else return;
             
             if(ctx->cond == "between") ctx->cond = ">=";
-                        
-//            switch (func->functype()) {
-//                case Item_func::Functype::EQ_FUNC:    break;                         
-//                case Item_func::Functype::GE_FUNC:    break;
-//                case Item_func::Functype::GT_FUNC:    break;
-//                case Item_func::Functype::LE_FUNC:    break;
-//                case Item_func::Functype::LT_FUNC:    break;
-//                case Item_func::Functype::NE_FUNC:    break;
-//                default : break;
-//                    
-//            }         
+                            
         }     
     }
-    
-//    Field **ptr;
-//    Field * field;
-//    
-//    for (ptr = table->field; (field = *ptr); ptr++) {
-//        std::string field_name = ret[0].substr(1, ret[0].length() - 2);
-//        if (!field_name.compare(field->field_name)) {
-//            type = typeToInt(field->type());
-//            *idx = field->field_index;
-//        }
-//    }
-// 
- 
     
 //    try {
 //      std::cout << "Item name : " << typeid(*item).name() << " Item type : " << item->type() << std::endl;
@@ -12313,6 +12300,19 @@ void ha_rocksdb::print_cond(const Item * item, void * arg) {
 //      std::cout << e.what() << std::endl;
 //    }
  }
+
+long long ha_rocksdb::compute_hash(std::string const &s) {
+    const int p = 95;
+    const int m = 1e9 + 9;
+    
+    long long hash_value = 0;
+    long long p_pow = 1;
+    for (char c : s) {
+        hash_value = (hash_value + (c - 0x20 + 1) * p_pow) % m;
+        p_pow = (p_pow * p) % m;
+    }
+    return hash_value;
+}
 
 /**
   SQL layer calls this function to push an index condition.

@@ -634,17 +634,22 @@ class ha_rocksdb : public my_core::handler {
     public :
       schema_context() : pivot(LONG_MAX), str_num(0), idx(-1), cond("INVALID"), find(false) {
           memset(cpivot, 0, sizeof(char) * 32 * 10);
+          memset(pivots, 0, sizeof(long long) * 10);
       }
       
       void ToString() {
           for(int i = 0; i < str_num; i++) {
-              std:: cout << "member [" << i + 1 << "] = "  << cpivot[i] << std::endl; 
+              std:: cout << "member [" << i + 1 << "] = "  << cpivot[i] << " : " << pivots[i] << std::endl; 
           }
       }
     
       long pivot;
+      
       char cpivot[10][32];
       int str_num;
+      
+      long long pivots[10];
+      
       int idx;
       std::string cond;
       bool find;
@@ -675,6 +680,7 @@ class ha_rocksdb : public my_core::handler {
   void calculate_parm(std::string cond_str, long * pivot,
           int * idx, std::string * cond);
   static void print_cond(const Item * item, void * arg);
+  static long long compute_hash(std::string const &s);
   
   int create_key_defs(const TABLE *const table_arg,
                       Rdb_tbl_def *const tbl_def_arg,
