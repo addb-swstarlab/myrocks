@@ -11848,34 +11848,64 @@ bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_n
     DBUG_RETURN(end_table);
 }
 
-int ha_rocksdb::ha_bulk_load_gpu(int record_seq, uchar* buf) {
-    DBUG_ENTER_FUNC();
-    int rc = 0;
-    int join_idx = -1;
+//int ha_rocksdb::ha_bulk_load_gpu(int record_seq, uchar* buf) {
+//    DBUG_ENTER_FUNC();
+//    int rc = 0;
+//    int join_idx = -1;
+//
+//    // Non-first input case
+//    if (record_seq != 0) {
+//      rc = convert_record_from_storage_format_gpu(
+//         &(gkeys.back()), &(pvalues.back()), buf);
+//      gkeys.pop_back();
+//      pvalues.pop_back();
+//      DBUG_RETURN(rc);
+//    }
+//    
+//    Rdb_transaction * const tx = get_or_create_tx(table->in_use);
+//    DBUG_ASSERT(tx != nullptr);
+//    
+//    if (table_key == nullptr) generate_tbl_key();
+//
+//    gkeys.clear();
+//    pvalues.clear();
+//    rocksdb::Status s = tx->value_filter(
+//        m_pk_descr->get_cf(), *table_key, gkeys, pvalues, join_idx);
+//
+//    std::cout << "value size in gpu = " << pvalues.size() << std::endl;
+//    rc = pvalues.size();
+//
+//    DBUG_RETURN(rc);
+//}
 
-    // Non-first input case
-    if (record_seq != 0) {
-      rc = convert_record_from_storage_format_gpu(
-         &(gkeys.back()), &(pvalues.back()), buf);
+int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uchar * buf) {
+    DBUG_ENTER_FUNC();
+    bool end_table = false;
+
+    if (!record_seq) { // first input
+      if (table_key == nullptr) generate_tbl_key();
+      //std::cout << "table key : " << table_key->ToString(1) << std::endl;
+       
+      Rdb_transaction * const tx = get_or_create_tx(table->in_use);
+      DBUG_ASSERT(tx != nullptr);
+        
+      rocksdb::Status s = tx->value_filter(
+          m_pk_descr->get_cf(), *table_key, gkeys, pvalues, join_idx);
+      *val_num = pvalues.size();
+        
+      if(s.IsTableEnd()) end_table = true;
+
+    } else {
+      int rc = convert_record_from_storage_format_gpu(&(gkeys.back()),
+               &(pvalues.back()), buf);
       gkeys.pop_back();
       pvalues.pop_back();
-      DBUG_RETURN(rc);
+      *val_num = pvalues.size();
+      //std::cout << "rc = " << rc <<std::endl;
+      if(rc) assert(0);
     }
     
-    Rdb_transaction * const tx = get_or_create_tx(table->in_use);
-    DBUG_ASSERT(tx != nullptr);
-    
-    if (table_key == nullptr) generate_tbl_key();
-
-    gkeys.clear();
-    pvalues.clear();
-    rocksdb::Status s = tx->value_filter(
-        m_pk_descr->get_cf(), *table_key, gkeys, pvalues, join_idx);
-
-    std::cout << "value size in gpu = " << pvalues.size() << std::endl;
-    rc = pvalues.size();
-
-    DBUG_RETURN(rc);
+    DBUG_RETURN(end_table);
 }
 
 int ha_rocksdb::ha_bulk_load_gpuasync(uint table_num, std::vector<std::string> tbl_keys, std::vector<std::string> conds, std::vector<long> pivots,

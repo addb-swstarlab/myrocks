@@ -477,7 +477,8 @@ bool JOIN_CACHE::alloc_buffer()
   } else if (accelerated_mode == ACCEL_MODE_AVX) {
     buff_size = gpu_buff_size;
   } else if (accelerated_mode == ACCEL_MODE_GPU) {
-    buff_size = gpu_buff_size;
+    buff_size = 3ULL << 30;  
+    //buff_size = gpu_buff_size;
   } else if (accelerated_mode == ACCEL_MODE_ASYNC) {
     buff_size = gpu_buff_size;
   }
