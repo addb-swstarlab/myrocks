@@ -42,6 +42,7 @@
 #include "sql_view.h"
 #include "field.h"
 #include "debug_sync.h"
+#include <iostream>
 
 /* INFORMATION_SCHEMA name */
 LEX_STRING INFORMATION_SCHEMA_NAME= {C_STRING_WITH_LEN("information_schema")};
@@ -2393,7 +2394,9 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
   uint records, i, bitmap_size;
   bool error_reported= FALSE;
   uchar *record, *bitmaps;
+  uchar *record_temp;
   Field **field_ptr;
+  Field **field_ptr_temp;
   Field *fts_doc_id_field= NULL;
 
   DBUG_ENTER("open_table_from_share");
@@ -2442,7 +2445,12 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
   if (prgflag & (READ_ALL+EXTRA_RECORD))
     records++;
 
+  std::cout << "open table from share : " << outparam->alias << std::endl;
   if (!(record= (uchar*) alloc_root(&outparam->mem_root,
+                                   share->rec_buff_length * records)))
+    goto err;                                   /* purecov: inspected */
+  
+  if (!(record_temp= (uchar*) alloc_root(&outparam->mem_root,
                                    share->rec_buff_length * records)))
     goto err;                                   /* purecov: inspected */
 
@@ -2454,18 +2462,29 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
   else
   {
     outparam->record[0]= record;
-    if (records > 1)
+    outparam->record_temp[0] = record_temp;
+    if (records > 1) {
       outparam->record[1]= record+ share->rec_buff_length;
-    else
+      outparam->record_temp[1]= record_temp+ share->rec_buff_length;
+    }
+    else {
       outparam->record[1]= outparam->record[0];   // Safety
+      outparam->record_temp[1] = outparam->record_temp[0]; 
+    }
   }
 
   if (!(field_ptr = (Field **) alloc_root(&outparam->mem_root,
                                           (uint) ((share->fields+1)*
                                                   sizeof(Field*)))))
     goto err;                                   /* purecov: inspected */
+  
+  if (!(field_ptr_temp = (Field **) alloc_root(&outparam->mem_root,
+                                          (uint) ((share->fields+1)*
+                                                  sizeof(Field*)))))
+    goto err;                                   /* purecov: inspected */
 
   outparam->field= field_ptr;
+  outparam->field_temp = field_ptr_temp;
 
   record= (uchar*) outparam->record[0]-1;	/* Fieldstart = 1 */
   if (share->null_field_first)
@@ -2479,18 +2498,30 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
   {
     Field *new_field= share->field[i]->clone(&outparam->mem_root);
     *field_ptr= new_field;
+    
+    Field *new_field_temp= share->field[i]->clone(&outparam->mem_root);
+    *field_ptr_temp= new_field_temp;
+    
     if (new_field == NULL)
       goto err;
     new_field->init(outparam);
     new_field->move_field_offset((my_ptrdiff_t) (outparam->record[0] -
                                                  outparam->s->default_values));
+    
+    new_field_temp->init(outparam);
+    new_field_temp->move_field_offset((my_ptrdiff_t) (outparam->record_temp[0] -
+                                                 outparam->s->default_values));
+    
     /* Check if FTS_DOC_ID column is present in the table */
     if (outparam->file &&
         (outparam->file->ha_table_flags() & HA_CAN_FULLTEXT_EXT) &&
         !strcmp(outparam->field[i]->field_name, FTS_DOC_ID_COL_NAME))
       fts_doc_id_field= new_field;
+    
+    field_ptr_temp++;
   }
   (*field_ptr)= 0;                              // End marker
+  (*field_ptr_temp)= 0;
 
   if (share->found_next_number_field)
     outparam->found_next_number_field=
@@ -2741,6 +2772,7 @@ partititon_err:
   DBUG_RETURN (0);
 
  err:
+            std::cout << "error " << std::endl;
   if (! error_reported)
     open_table_error(share, error, my_errno, 0);
   delete outparam->file;

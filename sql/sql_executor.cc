@@ -40,6 +40,8 @@
 #include "opt_explain_format.h" // Explain_format_flags
 
 #include <algorithm>
+#include <future>
+#include <thread>
 
 using std::max;
 using std::min;
@@ -1434,7 +1436,6 @@ enum_nested_loop_state
 sub_select(JOIN *join,JOIN_TAB *join_tab,bool end_of_records)
 {
   DBUG_ENTER("sub_select");
-  
   join_tab->table->null_row=0;
   if (end_of_records)
   {
@@ -1548,7 +1549,7 @@ sub_select_avx(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
           tab->buf_record = record_num;
           for (int j=1; j < record_num + 1; j++) {
         	table->file->ha_bulk_load_avx(j, table->record[0]);
-        	rc = tab->gpu_buffer->put_record();
+        	rc = tab->gpu_buffer[0]->put_record();
           }
           table->file->ha_release_key();
         }
@@ -1571,12 +1572,12 @@ sub_select_avx(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
       join_tab->not_null_compl= true;
       join_tab->found_match= false;
 
-      join_tab->gpu_buffer->reset_cache(false);
+      join_tab->gpu_buffer[0]->reset_cache(false);
 
       while (rc == NESTED_LOOP_OK && join->return_tab >= join_tab )
       {
         bool end_record;
-   	end_record = join_tab->gpu_buffer->get_record();
+   	end_record = join_tab->gpu_buffer[0]->get_record();
 
         /* Check for Record Contents */
 //   	    for (uint i= join->const_tables; i < join->tables; i++)
@@ -1676,7 +1677,7 @@ enum_nested_loop_state sub_select_avxblock(JOIN *join, JOIN_TAB *join_tab,
 //            if(end_record) std::cout << "[" << join_tab->table->alias << "] : end_record" << std::endl;
 
             /* Reset Cache Before write */
-            join_tab->gpu_buffer->reset_cache(true);
+            join_tab->gpu_buffer[0]->reset_cache(true);
             bool buf_full = false;
 
             /* Put record to Buffer until buffer is full */
@@ -1689,7 +1690,7 @@ enum_nested_loop_state sub_select_avxblock(JOIN *join, JOIN_TAB *join_tab,
                 /* Value vector has members to transform */
                 if(record_num) {
                    join_tab->table->file->ha_bulk_load_avxblock(1, 0, &record_num, join_tab->table->record[0]);
-                   buf_full = ((GPU_BUFFER *)join_tab->gpu_buffer)->put_record_buf();
+                   buf_full = ((GPU_BUFFER *)join_tab->gpu_buffer[0])->put_record_buf();
                    num_entry++;
                 }
                 /* Need to fetch from RocksDB */
@@ -1704,12 +1705,12 @@ enum_nested_loop_state sub_select_avxblock(JOIN *join, JOIN_TAB *join_tab,
         }
 
          // Reset Cache for read
-        join_tab->gpu_buffer->reset_cache(false);
+        join_tab->gpu_buffer[0]->reset_cache(false);
 
         /* Nested Loop Join among Buffers */
         //std::cout << "[" << join_tab->table->alias << "] : evaluate join record in buffer : " << num_entry << std::endl;
         while (num_entry--) {
-            end_record = join_tab->gpu_buffer->get_record();
+            end_record = join_tab->gpu_buffer[0]->get_record();
             if (join->thd->is_error()) {
                 rc = NESTED_LOOP_ERROR;
                 break;
@@ -1727,7 +1728,7 @@ enum_nested_loop_state sub_select_avxblock(JOIN *join, JOIN_TAB *join_tab,
 
         if (end_table && !record_num) {
 //            std::cout << "[" << join_tab->table->alias << "] : reset buf_exists " << std::endl;
-            join_tab->gpu_buffer->reset_cache(true);
+            join_tab->gpu_buffer[0]->reset_cache(true);
             join_tab->buf_exists = false;
             break;
         }
@@ -1736,6 +1737,7 @@ enum_nested_loop_state sub_select_avxblock(JOIN *join, JOIN_TAB *join_tab,
     DBUG_RETURN(rc);
 }
 
+/* Deprecated : utilize Full buffer */
 //enum_nested_loop_state
 //sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
 //{
@@ -1846,6 +1848,7 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
       join->gpu_complete = true;
     }
     
+    std::cout << "end_of_record" << std::endl;
     if (end_of_records) {
       join_tab->table->file->ha_release_key();
       enum_nested_loop_state nls = (*join_tab->next_select)(join,
@@ -1853,6 +1856,7 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
       DBUG_RETURN(nls);
     }
 
+    std::cout << "prepare_scan" << std::endl;
   /* Stage 2 : Join Processing */
     if (join_tab->prepare_scan()) {
       DBUG_RETURN(NESTED_LOOP_ERROR);
@@ -1868,7 +1872,8 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
     bool end_table = false;
     bool end_record = false;
     int record_num = 0;
-    std::cout << "tab pointer = " << (void*)join_tab << " and buf_exist : " << join_tab->buf_exists << std::endl;
+    std::cout << "tab pointer = " << (void*)join_tab << " and join_tab name = " << join_tab->table->alias
+            << " and buf_exist : " << join_tab->buf_exists << std::endl;
 
     while (rc == NESTED_LOOP_OK && join->return_tab >= join_tab) {
         /* When comes from recursive path, We don't need to create a new buffer if already exists */
@@ -1879,7 +1884,7 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
       /* GPU Phase */
       if(first_read || end_record) {
         /* Reset Cache Before write */
-        join_tab->gpu_buffer->reset_cache(true);
+        join_tab->gpu_buffer[0]->reset_cache(true);
         bool buf_full = false;
 
         /* Put record to Buffer until buffer is full */
@@ -1891,7 +1896,7 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
           /* Value vector has members to transform */
           if(record_num) {
             join_tab->table->file->ha_bulk_load_gpu(1, 0, &record_num, join_tab->table->record[0]);
-            buf_full = ((GPU_BUFFER *)join_tab->gpu_buffer)->put_record_buf();
+            buf_full = ((GPU_BUFFER *)join_tab->gpu_buffer[0])->put_record_buf();
             num_entry++;
           }
           /* Need to fetch from RocksDB */
@@ -1906,12 +1911,12 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
       }
 
          // Reset Cache for read
-      join_tab->gpu_buffer->reset_cache(false);
+      join_tab->gpu_buffer[0]->reset_cache(false);
 
         /* Nested Loop Join among Buffers */
-        //std::cout << "[" << join_tab->table->alias << "] : evaluate join record in buffer : " << num_entry << std::endl;
+      std::cout << "[" << join_tab->table->alias << "] : evaluate join record in buffer : " << num_entry << std::endl;
       while (num_entry--) {
-          end_record = join_tab->gpu_buffer->get_record();
+          end_record = join_tab->gpu_buffer[0]->get_record();
           if (join->thd->is_error()) {
               rc = NESTED_LOOP_ERROR;
               break;
@@ -1929,7 +1934,7 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
 
       if (end_table && !record_num) {
 //            std::cout << "[" << join_tab->table->alias << "] : reset buf_exists " << std::endl;
-        join_tab->gpu_buffer->reset_cache(true);
+        join_tab->gpu_buffer[0]->reset_cache(true);
         join_tab->buf_exists = false;
         break;
       }
@@ -2012,7 +2017,7 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
 
         /* GPU Phase */
         /* Reset Cache Before write */
-        join_tab->gpu_buffer->reset_cache(true);
+        join_tab->gpu_buffer[0]->reset_cache(true);
         bool buf_full = false; 
 
         /* Put record to Buffer until buffer is full */
@@ -2040,11 +2045,11 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
 //        lock.unlock();
 
         // Reset Cache for read
-        join_tab->gpu_buffer->reset_cache(false);
+        join_tab->gpu_buffer[0]->reset_cache(false);
 
         /* Nested Loop Join among Buffers */
         while (num_entry--) {
-            join_tab->gpu_buffer->get_record();
+            join_tab->gpu_buffer[0]->get_record();
             if (join->thd->is_error()) {
                 rc = NESTED_LOOP_ERROR;
                 break;
@@ -2063,6 +2068,149 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
 //            join_tab->gpu_buffer->reset_cache(true);
 //            break;
 //        }
+    }
+    DBUG_RETURN(rc);
+}
+
+bool allot_execution_buffer(JOIN *join, JOIN_TAB *join_tab) {
+    
+    join_tab->gpu_buffer[1]->reset_cache(true);
+  
+    bool buf_full = false;
+    bool end_table = false;
+    int record_num = 0;
+
+    /* Put record to Buffer until buffer is full */
+    while (!buf_full) {
+      /* If there is no entry to fetch, then break */
+      if(end_table && !record_num) {
+        break;
+      }
+      /* Value vector has members to transform */
+      if(record_num) {
+        join_tab->table->file->ha_bulk_load_avxblock(1, 0, &record_num, join_tab->table->record_temp[0]);
+        buf_full = ((GPU_BUFFER *)join_tab->gpu_buffer[1])->put_record_buf_async();
+      }
+      /* Need to fetch from RocksDB */
+      else {
+        end_table = join_tab->table->file->ha_bulk_load_avxblock(0, join_tab - join->join_tab, &record_num,
+        join_tab->table->record_temp[0]);
+      }
+    }
+    
+    return end_table;
+}
+
+enum_nested_loop_state sub_select_avxasync(JOIN *join, JOIN_TAB *join_tab,
+        bool end_of_records) {
+    DBUG_ENTER("sub_select_avx_async");
+    enum_nested_loop_state rc = NESTED_LOOP_OK;
+    join_tab->table->null_row = 0;
+
+    if (!join->gpu_complete) {
+        /* Stage 1 : Parameter Setting */
+        for (uint i = join->const_tables; i < join->primary_tables; i++) {
+            JOIN_TAB * const tab = join->join_tab + i;
+            TABLE * const table = tab->table;
+
+            Item * cond = tab->condition();
+            table->file->cond_push(cond);
+            table->file->ha_rnd_init(true);
+            table->file->ha_rnd_end();
+        }
+        join->gpu_complete = true;
+    }
+    
+    if (end_of_records) {
+        join_tab->table->file->ha_release_key();
+        enum_nested_loop_state nls = (*join_tab->next_select)(join,
+                join_tab + 1, end_of_records);
+        DBUG_RETURN(nls);
+    }
+
+    /* Stage 2 : Join Processing */
+    if (join_tab->prepare_scan()) {
+        DBUG_RETURN(NESTED_LOOP_ERROR);
+    }
+
+    join->return_tab = join_tab;
+    join_tab->not_null_compl = true;
+    join_tab->found_match = false;
+
+    bool first_read = true;
+    bool end_table = false;
+    bool end_record = false;
+    int num_entry = 0;
+    std::cout << "tab pointer = " << (void*)join_tab << " and buf_exist : " << join_tab->buf_exists << std::endl;
+    //std::future<bool> test;
+    //std::cout << "atest valid : " << test.valid() << std::endl;
+
+    while (rc == NESTED_LOOP_OK && join->return_tab >= join_tab) {
+        /* When comes from recursive path, We don't need to create a new buffer if already exists */
+       // std::future<bool> thd_;
+        bool thread_start = false;
+        if(join_tab->buf_exists) {
+            first_read = false;
+        }
+        
+        std::packaged_task<bool(JOIN *, JOIN_TAB *)> task(allot_execution_buffer);
+        auto f = task.get_future();
+        
+        /* GPU Phase */
+        if((first_read || end_record) && !end_table) {
+            /* Reset Cache Before write */
+            //thd_ = std::async(std::launch::async, allot_execution_buffer, join, join_tab);
+            std::thread thread(std::move(task), join, join_tab);
+            
+            thread.detach();
+            
+            thread_start = true;
+            first_read = false;
+            join_tab->buf_exists = true;
+        }
+
+         // Reset Cache for read
+        join_tab->gpu_buffer[0]->reset_cache(false);
+
+       
+        //std::cout << "buff1 = " << join_tab->gpu_buffer[0]->get_entrynum()
+             //   <<" buff2 = " << join_tab->gpu_buffer[1]->get_entrynum() << " and end_table = " << end_table << std::endl;
+        
+        /* Nested Loop Join among Buffers */
+        while (num_entry > 0) {
+            //std::cout << " numentry = " << num_entry << " 22 = " << join_tab->gpu_buffer[1]->get_entrynum() << std::endl;
+            end_record = join_tab->gpu_buffer[0]->get_record();
+            num_entry--;
+            if (join->thd->is_error()) {
+                rc = NESTED_LOOP_ERROR;
+                break;
+            } else if (join->thd->killed) {
+                join->thd->send_kill_message();
+                rc = NESTED_LOOP_KILLED;
+                break;
+            } else {
+                rc = evaluate_join_record(join, join_tab);
+            }
+        }
+        end_record = true;
+        
+        if (end_table && !num_entry) {
+          join_tab->gpu_buffer[0]->reset_cache(true);
+          join_tab->buf_exists = false;
+          break;
+        } 
+        
+        DBUG_EXECUTE_IF("bug13822652_1", join->thd->killed = THD::KILL_QUERY;);
+        //std::cout << "async valid : " << thd_.valid() << std::endl;
+        if(thread_start) {
+          //end_table = thd_.get();
+          end_table = f.get();
+          QEP_operation *temp = join_tab->gpu_buffer[0];
+          join_tab->gpu_buffer[0] = join_tab->gpu_buffer[1];
+          join_tab->gpu_buffer[1] = temp;
+          //std::cout << "gpu [0] = " << (void *) join_tab->gpu_buffer[0] << " gpu [1] = " << (void*)join_tab->gpu_buffer[1] << std::endl;
+        }
+        num_entry = join_tab->gpu_buffer[0]->get_entrynum();        
     }
     DBUG_RETURN(rc);
 }
@@ -2246,8 +2394,7 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
 
   if (condition)
   {
-	found= MY_TEST(condition->val_int());
-//    std::cout<<"[Function : Evaluate_join_record = Join_tab ] " << join_tab->table->alias <<" found " << found << std::endl;
+    found= MY_TEST(condition->val_int());
     if (join->thd->killed)
     {
       join->thd->send_kill_message();

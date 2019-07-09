@@ -950,11 +950,15 @@ bool JOIN::destroy()
       tab->op= NULL;
 
     }
-    if (tab->gpu_buffer) {
+    if (tab->gpu_buffer[0]) {
        /* GPU Accelerator */
        std::cout << "gpu buffer free" << std::endl;
-       tab->gpu_buffer->free();
-       tab->gpu_buffer = NULL;
+       tab->gpu_buffer[0]->free();
+       tab->gpu_buffer[0] = NULL;
+    }
+    if (tab->gpu_buffer[1]) {
+       tab->gpu_buffer[1]->free();
+       tab->gpu_buffer[1] = NULL;
     }
 
     tab->table= NULL;
@@ -2434,10 +2438,12 @@ static bool setup_join_buffering(JOIN_TAB *tab, JOIN *join,
   const uint tableno= tab - join->join_tab;
   const uint tab_sj_strategy= tab->get_sj_strategy();
 
-  if(accelerated_mode != ACCEL_MODE_OFF){
+  if(accelerated_mode != ACCEL_MODE_OFF && strcmp(tab->table->file->table_type(),"MEMORY")){
   /* GPU Accelerator */
-    tab->gpu_buffer = new GPU_BUFFER(join, tab, NULL);
-    tab->gpu_buffer->init();
+    tab->gpu_buffer[0] = new GPU_BUFFER(join, tab, NULL);
+    tab->gpu_buffer[0]->init();
+    tab->gpu_buffer[1] = new GPU_BUFFER(join, tab, NULL);
+    tab->gpu_buffer[1]->init();
   }
 
   bool use_bka_unique= false;
@@ -2900,7 +2906,9 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
           tab[-1].next_select=sub_select_avxblock;
         } else if (accelerated_mode == ACCEL_MODE_GPU && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
           tab[-1].next_select=sub_select_gpu;
-        } else if (accelerated_mode == ACCEL_MODE_ASYNC && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
+        } else if (accelerated_mode == ACCEL_MODE_AVX_ASYNC && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
+          tab[-1].next_select=sub_select_avxasync;
+        } else if (accelerated_mode == ACCEL_MODE_GPU_ASYNC && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
           tab[-1].next_select=sub_select_gpuasync;
         } else {
             std::cout << " sub_select " << i <<std::endl;

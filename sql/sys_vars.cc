@@ -6142,7 +6142,7 @@ static Sys_var_ulonglong Sys_gpu_buff_size(
 
 static Sys_var_enum Sys_accelerated_mode(
        "accel_mode",
-       "AVX, AVX Block, GPU, OFF ",
+       "OFF, AVX, AVX Block, GPU, AVX_ASYNC, GPU_ASYNC ",
        GLOBAL_VAR(accelerated_mode), CMD_LINE(REQUIRED_ARG),
        accelerated_mode_names, DEFAULT(ACCEL_MODE_OFF));
         

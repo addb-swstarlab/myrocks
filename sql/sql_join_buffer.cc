@@ -32,6 +32,7 @@
 #include "sql_tmp_table.h"  // instantiate_tmp_table()
 
 #include <algorithm>
+#include <iostream>
 using std::max;
 using std::min;
 
@@ -141,6 +142,66 @@ uint add_table_data_fields_to_join_cache(JOIN_TAB *tab,
   *descr_ptr= copy_ptr;
   return len;
 }
+
+static
+uint add_table_data_fields_to_join_cache(JOIN_TAB *tab, 
+                                         MY_BITMAP *field_set,
+                                         uint *field_cnt, 
+                                         CACHE_FIELD **descr,
+                                         CACHE_FIELD **temp,
+                                         uint *field_ptr_cnt,
+                                         CACHE_FIELD ***descr_ptr)
+{
+  Field **fld_ptr;
+  Field **fld_temp;
+  uint len= 0;
+  uint len_temp= 0;
+  CACHE_FIELD *copy= *descr;
+  CACHE_FIELD *copy_temp = *temp;
+  CACHE_FIELD **copy_ptr= *descr_ptr;
+  uint used_fields= bitmap_bits_set(field_set);
+  uint used_fields_temp= bitmap_bits_set(field_set);
+  
+  for (fld_ptr= tab->table->field; used_fields; fld_ptr++)
+  {
+    if (bitmap_is_set(field_set, (*fld_ptr)->field_index))
+    {
+      len+= (*fld_ptr)->fill_cache_field(copy);
+      if (copy->type == CACHE_BLOB)
+      {
+        *copy_ptr= copy;
+        copy_ptr++;
+        (*field_ptr_cnt)++;
+      }
+      copy->field= *fld_ptr;
+      copy->referenced_field_no= 0;
+      copy->next_copy_rowid= NULL;
+      copy++;
+      (*field_cnt)++;
+      used_fields--;
+    }
+  }
+ 
+  for (fld_temp= tab->table->field_temp; used_fields_temp; fld_temp++)
+  {  
+    if (bitmap_is_set(field_set, (*fld_temp)->field_index))
+    {
+      len_temp += (*fld_temp)->fill_cache_field(copy_temp);
+      copy_temp->field= *fld_temp;
+      copy_temp->referenced_field_no= 0;
+      copy_temp->next_copy_rowid= NULL;
+      copy_temp++;
+      used_fields_temp--;
+
+    }
+
+  }
+  *descr= copy;
+  *temp = copy_temp;
+  *descr_ptr= copy_ptr;
+ 
+  return len;
+}
     
 
 /* 
@@ -228,6 +289,8 @@ int JOIN_CACHE::alloc_fields(uint external_fields)
   uint ptr_cnt= external_fields+blobs+1;
   uint fields_size= sizeof(CACHE_FIELD)*fields;
   field_descr= (CACHE_FIELD*) sql_alloc(fields_size +
+                                        sizeof(CACHE_FIELD*)*ptr_cnt);
+  field_temp= (CACHE_FIELD*) sql_alloc(fields_size +
                                         sizeof(CACHE_FIELD*)*ptr_cnt);
   blob_ptr= (CACHE_FIELD **) ((uchar *) field_descr + fields_size);
   return (field_descr == NULL);
@@ -472,14 +535,17 @@ bool JOIN_CACHE::alloc_buffer()
                   );
   if (accelerated_mode == ACCEL_MODE_AVX_BLOCK) {
     //buff_size = 32 << 10;
-      buff_size = 256 * 1024;
+    buff_size = 256 * 1024;
     //buff_size = 64 << 20;
   } else if (accelerated_mode == ACCEL_MODE_AVX) {
     buff_size = gpu_buff_size;
   } else if (accelerated_mode == ACCEL_MODE_GPU) {
-    buff_size = 3ULL << 30;  
+    buff_size = 1 << 25;  
     //buff_size = gpu_buff_size;
-  } else if (accelerated_mode == ACCEL_MODE_ASYNC) {
+  } else if (accelerated_mode == ACCEL_MODE_AVX_ASYNC) {
+    //buff_size = gpu_buff_size;
+    buff_size = 256 * 1024;
+  } else if (accelerated_mode == ACCEL_MODE_GPU_ASYNC) {
     buff_size = gpu_buff_size;
   }
 
@@ -3458,10 +3524,215 @@ int GPU_BUFFER::init()
 }
 
 bool GPU_BUFFER::put_record_buf() {
-	if(put_record_in_cache()) {
-            return true;
-	}
-	return false;
+  if(put_record_in_cache()) {
+    return true;
+  }
+  return false;
+}
+
+bool GPU_BUFFER::put_record_buf_async() {
+  if(put_record_in_cache_async()) {
+    return true;
+  }
+  return false;
+}
+
+bool GPU_BUFFER::put_record_in_cache_async()
+{
+  bool is_full;
+  uchar *link= 0;
+  write_record_data_async(link, &is_full);
+  return (is_full);
+}
+
+uint GPU_BUFFER::write_record_data_async(uchar * link, bool *is_full)
+{
+  uint len;
+  bool last_record;
+  CACHE_FIELD *copy;
+  CACHE_FIELD *copy_end;
+  uchar *cp= pos;
+  uchar *init_pos= cp;
+  uchar *rec_len_ptr= 0;
+ 
+  records++;  /* Increment the counter of records in the cache */
+
+  len= pack_length;
+
+  /* Make an adjustment for the size of the auxiliary buffer if there is any */
+  uint incr= aux_buffer_incr();
+  ulong rem= rem_space();
+  aux_buff_size+= len+incr < rem ? incr : rem;
+
+  /*
+    For each blob to be put into cache save its length and a pointer
+    to the value in the corresponding element of the blob_ptr array.
+    Blobs with null values are skipped.
+    Increment 'len' by the total length of all these blobs. 
+  */    
+  if (blobs)
+  {
+    CACHE_FIELD **copy_ptr= blob_ptr;
+    CACHE_FIELD **copy_ptr_end= copy_ptr+blobs;
+    for ( ; copy_ptr < copy_ptr_end; copy_ptr++)
+    {
+      Field_blob *blob_field= (Field_blob *) (*copy_ptr)->field;
+      if (!is_field_null(blob_field))
+      {
+        uint blob_len= blob_field->get_length();
+        (*copy_ptr)->blob_length= blob_len;
+        len+= blob_len;
+        blob_field->get_ptr(&(*copy_ptr)->str);
+      }
+    }
+  }
+
+  /*
+    Check whether we won't be able to add any new record into the cache after
+    this one because the cache will be full. Set last_record to TRUE if it's so.
+    The assume that the cache will be full after the record has been written
+    into it if either the remaining space of the cache is not big enough for the 
+    record's blob values or if there is a chance that not all non-blob fields
+    of the next record can be placed there.
+    This function is called only in the case when there is enough space left in
+    the cache to store at least non-blob parts of the current record.
+  */
+  last_record= (len+pack_length_with_blob_ptrs) > rem_space();
+  
+  /* 
+    Save the position for the length of the record in the cache if it's needed.
+    The length of the record will be inserted here when all fields of the record
+    are put into the cache.  
+  */
+  if (with_length)
+  {
+    rec_len_ptr= cp;   
+    cp+= size_of_rec_len;
+  }
+
+  /*
+    Put a reference to the fields of the record that are stored in the previous
+    cache if there is any. This reference is passed by the 'link' parameter.     
+  */
+  if (prev_cache)
+  {
+    cp+= prev_cache->get_size_of_rec_offset();
+    prev_cache->store_rec_ref(cp, link);
+  } 
+
+  curr_rec_pos= cp;
+  
+  /* If the there is a match flag set its value to 0 */
+  copy= field_temp;
+  if (with_match_flag)
+    *copy[0].str= 0;
+
+  /* First put into the cache the values of all flag fields */
+  copy_end= field_temp+flag_fields;
+  for ( ; copy < copy_end; copy++)
+  {
+    memcpy(cp, copy->str, copy->length);
+    cp+= copy->length;
+  } 
+  
+  /* Now put the values of the remaining fields as soon as they are not nulls */ 
+  copy_end= field_temp+fields;
+  for ( ; copy < copy_end; copy++)
+  {
+    Field *field= copy->field;
+    if (field && field->maybe_null() && is_field_null(field))
+    {
+      /* Do not copy a field if its value is null */
+      if (copy->referenced_field_no)
+        copy->offset= 0;
+      continue;              
+    }
+    /* Save the offset of the field to put it later at the end of the record */ 
+    if (copy->referenced_field_no)
+      copy->offset= cp-curr_rec_pos;
+
+    if (copy->type == CACHE_BLOB)
+    {
+      Field_blob *blob_field= (Field_blob *) copy->field;
+      if (last_record)
+      {
+        last_rec_blob_data_is_in_rec_buff= 1;
+        /* Put down the length of the blob and the pointer to the data */  
+	blob_field->get_image(cp, copy->length+sizeof(char*),
+                              blob_field->charset());
+	cp+= copy->length+sizeof(char*);
+      }
+      else
+      {
+        /* First put down the length of the blob and then copy the data */ 
+	blob_field->get_image(cp, copy->length, 
+			      blob_field->charset());
+	memcpy(cp+copy->length, copy->str, copy->blob_length);               
+	cp+= copy->length+copy->blob_length;
+      }
+    }
+    else
+    {
+      switch (copy->type) {
+      case CACHE_VARSTR1:
+        /* Copy the significant part of the short varstring field */ 
+        len= (uint) copy->str[0] + 1;
+        memcpy(cp, copy->str, len);
+        cp+= len;
+        break;
+      case CACHE_VARSTR2:
+        /* Copy the significant part of the long varstring field */
+        len= uint2korr(copy->str) + 2;
+        memcpy(cp, copy->str, len);
+        cp+= len;
+        break;
+      case CACHE_STRIPPED:
+      {
+        /* 
+          Put down the field value stripping all trailing spaces off.
+          After this insert the length of the written sequence of bytes.
+        */ 
+	uchar *str, *end;
+	for (str= copy->str, end= str+copy->length;
+	     end > str && end[-1] == ' ';
+	     end--) ;
+	len=(uint) (end-str);
+        int2store(cp, len);
+	memcpy(cp+2, str, len);
+	cp+= len+2;
+        break;
+      }
+      default:      
+        /* Copy the entire image of the field from the record buffer */
+	memcpy(cp, copy->str, copy->length);
+	cp+= copy->length;
+      }
+    }
+  }
+  
+  /* Add the offsets of the fields that are referenced from other caches */ 
+  if (referenced_fields)
+  {
+    uint cnt= 0;
+    for (copy= field_descr+flag_fields; copy < copy_end ; copy++)
+    {
+      if (copy->referenced_field_no)
+      {
+        store_fld_offset(cp+size_of_fld_ofs*(copy->referenced_field_no-1),
+                         copy->offset);
+        cnt++;
+      }
+    }
+    cp+= size_of_fld_ofs*cnt;
+  }
+
+  if (rec_len_ptr)
+    store_rec_length(rec_len_ptr, (ulong) (cp-rec_len_ptr-size_of_rec_len));
+  last_rec_pos= curr_rec_pos; 
+  end_pos= pos= cp;
+  *is_full= last_record;
+
+  return (uint) (cp-init_pos);
 }
 
 //bool GPU_BUFFER::get_record()
@@ -3584,6 +3855,7 @@ void GPU_BUFFER:: create_remaining_fields(bool all_read_fields)
 {
   JOIN_TAB *tab;
   CACHE_FIELD *copy= field_descr+flag_fields+data_field_count;
+  CACHE_FIELD *copy_temp = field_temp+flag_fields+data_field_count;
   CACHE_FIELD **copy_ptr= blob_ptr+data_field_ptr_count;
 
     tab=join_tab;
@@ -3599,10 +3871,18 @@ void GPU_BUFFER:: create_remaining_fields(bool all_read_fields)
       rem_field_set= &table->tmp_set;
     }
 
-    length+= add_table_data_fields_to_join_cache(tab, rem_field_set,
+    if(accelerated_mode == ACCEL_MODE_AVX_ASYNC || accelerated_mode == ACCEL_MODE_GPU_ASYNC) { 
+      length+= add_table_data_fields_to_join_cache(tab, rem_field_set,
+                                                 &data_field_count, &copy, &copy_temp,
+                                                 &data_field_ptr_count,
+                                                 &copy_ptr);
+        
+    } else {
+      length+= add_table_data_fields_to_join_cache(tab, rem_field_set,
                                                  &data_field_count, &copy,
                                                  &data_field_ptr_count,
                                                  &copy_ptr);
+    }
 
     /* SemiJoinDuplicateElimination: allocate space for rowid if needed */
     if (tab->keep_current_rowid)

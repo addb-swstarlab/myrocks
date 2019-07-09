@@ -197,6 +197,7 @@ protected:
     These are all fields that are stored for a record in the cache. 
   */
   CACHE_FIELD *field_descr;
+  CACHE_FIELD *field_temp;
 
   /* 
     Array of pointers to the blob descriptors that contains 'blobs' elements.
@@ -476,6 +477,7 @@ public:
 
   enum_op_type type() { return OT_CACHE; }
   void set_field(uint num) { fields = num;};
+  int get_entrynum() { return records; }
 
   /**
     This constructor creates a join cache, linked or not. The cache is to be
@@ -555,9 +557,13 @@ public:
   /* Initialize the GPU BUFFER */
   int init();
   bool put_record_buf();
+  bool put_record_buf_async();
   void calc_record_fields();
   void create_flag_fields();
   void create_remaining_fields(bool all_read_fields);
+  bool put_record_in_cache_async();
+  uint write_record_data_async(uchar * link, bool *is_full);
+  
   //bool get_record();
   //void reset_cache(bool write);
 //  bool put_record_in_cache();

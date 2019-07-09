@@ -1122,6 +1122,8 @@ public:
 
   THD	*in_use;                        /* Which thread uses this */
   Field **field;			/* Pointer to fields */
+  Field **field_temp;
+  uchar *record_temp[2];
 
   uchar *record[2];			/* Pointer to records */
   uchar *write_row_record;		/* Used as optimisation in
@@ -1338,9 +1340,6 @@ public:
 
   // last time table was accessed via get_table() function
   time_point last_accessed;
-
-  // GPU accelerator
-  // GPU_BUFFER * gpu_buffer;
 
   void init(THD *thd, TABLE_LIST *tl);
   bool fill_item_list(List<Item> *item_list) const;

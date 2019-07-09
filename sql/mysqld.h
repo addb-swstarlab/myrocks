@@ -965,7 +965,8 @@ enum enum_accelerated_mode
     ACCEL_MODE_AVX = 1,
     ACCEL_MODE_AVX_BLOCK = 2,
     ACCEL_MODE_GPU = 3,
-    ACCEL_MODE_ASYNC = 4
+    ACCEL_MODE_AVX_ASYNC = 4,
+    ACCEL_MODE_GPU_ASYNC = 5
 };
 
 extern ulong gtid_mode;

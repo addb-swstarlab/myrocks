@@ -2924,13 +2924,11 @@ public:
     rocksdb::ReadOptions vf_read_opts = m_read_opts;
     if (accelerated_mode == ACCEL_MODE_AVX) {
       vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::AVX;
-    } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK) {
+    } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK || accelerated_mode == ACCEL_MODE_AVX_ASYNC) {
       vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::AVX_BLOCK;
-    } else if (accelerated_mode == ACCEL_MODE_GPU) {
+    } else if (accelerated_mode == ACCEL_MODE_GPU || accelerated_mode == ACCEL_MODE_GPU_ASYNC) {
       vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::GPU;
-    } else if (accelerated_mode == ACCEL_MODE_ASYNC) {
-        vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::ASYNC;
-    }
+    } 
     return m_rocksdb_tx->ValueFilter(vf_read_opts, column_family, key, keys, values, join_idx);
   }
 
@@ -6228,6 +6226,121 @@ int ha_rocksdb::convert_record_from_storage_format_gpu(
     // Restore field->ptr and field->null_ptr
     field->move_field(table->record[0] + field_offset,
                       maybe_null ? table->record[0] + null_offset : nullptr,
+                      field->null_bit);
+
+    if (err != HA_EXIT_SUCCESS) {
+      return err;
+    }
+  }
+
+  return HA_EXIT_SUCCESS;
+}
+
+int ha_rocksdb::convert_record_from_storage_format_async(
+    const rocksdb::PinnableSlice *const key, rocksdb::PinnableSlice * value, uchar * buf) {
+  Rdb_string_reader reader(value);
+  //std::cout << "Slice contents " << value->ToString(1) << std::endl;
+  /*
+    Decode PK fields from the key
+  */
+  m_last_rowkey_temp.copy(key->data(), key->size(), &my_charset_bin);
+
+  DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_read1",
+                  dbug_modify_key_varchar8(m_last_rowkey_temp););
+
+  const rocksdb::Slice rowkey_slice(m_last_rowkey_temp.ptr(),
+                                    m_last_rowkey_temp.length());
+   
+  const char *unpack_info = nullptr;
+  uint16 unpack_info_len = 0;
+  rocksdb::Slice unpack_slice;
+
+  /* Other fields are decoded from the value */
+  const char *null_bytes = nullptr;
+  if (m_null_bytes_in_rec && !(null_bytes = reader.read(m_null_bytes_in_rec))) {
+    return HA_ERR_ROCKSDB_CORRUPT_DATA;
+  }
+
+  if (m_maybe_unpack_info) {
+    unpack_info = reader.get_current_ptr();
+    if (!unpack_info || !Rdb_key_def::is_unpack_data_tag(unpack_info[0]) ||
+        !reader.read(Rdb_key_def::get_unpack_header_size(unpack_info[0]))) {
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
+
+    unpack_info_len =
+        rdb_netbuf_to_uint16(reinterpret_cast<const uchar *>(unpack_info + 1));
+    unpack_slice = rocksdb::Slice(unpack_info, unpack_info_len);
+
+    reader.read(unpack_info_len -
+                Rdb_key_def::get_unpack_header_size(unpack_info[0]));
+  }
+
+  int err = HA_EXIT_SUCCESS;
+  if (m_key_requested) {
+    err = m_pk_descr->unpack_record(table, buf, &rowkey_slice,
+                                    unpack_info ? &unpack_slice : nullptr,
+                                    false /* verify_checksum */);
+  }
+
+  if (err != HA_EXIT_SUCCESS) {
+    return err;
+  }
+
+  for (auto it = m_decoders_vect.begin(); it != m_decoders_vect.end(); it++) {
+    const Rdb_field_encoder *const field_dec = it->m_field_enc;
+    const bool decode = it->m_decode;
+    const bool isNull =
+        field_dec->maybe_null() &&
+        ((null_bytes[field_dec->m_null_offset] & field_dec->m_null_mask) != 0);
+
+    Field *const field_temp = table->field_temp[field_dec->m_field_index];
+    Field *const field = table->field[field_dec->m_field_index];
+
+    /* Skip the bytes we need to skip */
+    if (it->m_skip && !reader.read(it->m_skip)) {
+      return HA_ERR_ROCKSDB_CORRUPT_DATA;
+    }
+
+    uint field_offset = field_temp->ptr - table->record_temp[0];
+    uint null_offset = field->null_offset();
+    bool maybe_null = field->real_maybe_null();
+
+    field_temp->move_field(buf + field_offset,
+                      maybe_null ? buf + null_offset : nullptr,
+                      field->null_bit);
+    // WARNING! - Don't return before restoring field->ptr and field->null_ptr!
+
+    if (isNull) {
+      if (decode) {
+        /* This sets the NULL-bit of this record */
+        field_temp->set_null();
+        /*
+          Besides that, set the field value to default value. CHECKSUM TABLE
+          depends on this.
+        */
+        memcpy(field_temp->ptr, table->s->default_values + field_offset,
+               field->pack_length());
+      }
+    } else {
+      if (decode) {
+        field_temp->set_notnull();
+      }
+      
+      if (field_dec->m_field_type == MYSQL_TYPE_BLOB) {
+        err = convert_blob_from_storage_format(
+            (my_core::Field_blob *) field_temp, &reader, decode);
+      } else if (field_dec->m_field_type == MYSQL_TYPE_VARCHAR) {
+        err = convert_varchar_from_storage_format(
+            (my_core::Field_varstring *) field_temp, &reader, decode);
+      } else {
+        err = convert_field_from_storage_format(
+            field_temp, &reader, decode, field_dec->m_pack_length_in_rec);
+      }
+    }
+    // Restore field->ptr and field->null_ptr
+    field_temp->move_field(table->record_temp[0] + field_offset,
+                      maybe_null ? table->record_temp[0] + null_offset : nullptr,
                       field->null_bit);
 
     if (err != HA_EXIT_SUCCESS) {
@@ -11836,8 +11949,14 @@ bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_n
     } else {
 //        convert_record_from_storage_format_gpu(&gkeys[record_seq - 1],
 //                &(pvalues.back()), buf);
-         int rc = convert_record_from_storage_format_gpu(&(gkeys.back()),
+        int rc = 0;
+        if(accelerated_mode == ACCEL_MODE_AVX_ASYNC || accelerated_mode == ACCEL_MODE_GPU_ASYNC) { 
+          rc = convert_record_from_storage_format_async(&(gkeys.back()),
+                &(pvalues.back()), buf);  
+        } else {
+          rc = convert_record_from_storage_format_gpu(&(gkeys.back()),
                 &(pvalues.back()), buf);
+        }
          gkeys.pop_back();
          pvalues.pop_back();
          *val_num = pvalues.size();

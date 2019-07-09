@@ -671,7 +671,7 @@ public:
   /*
    * GPU Accelerator
    */
-  QEP_operation *gpu_buffer;
+  QEP_operation *gpu_buffer[2];
   uint buf_record;
   /*
     Index condition for BKA access join
@@ -956,7 +956,7 @@ st_join_table::st_join_table()
     ref(),
     use_join_cache(0),
     op(NULL),
-    gpu_buffer(NULL),
+//    gpu_buffer(NULL),
     buf_record(0),
 
     cache_idx_cond(NULL),
@@ -994,6 +994,8 @@ st_join_table::st_join_table()
     rather than invoking a constructor.
   */
   memset(&read_record, 0, sizeof(read_record));
+  gpu_buffer[0] = NULL;
+  gpu_buffer[1] = NULL;
 }
 
 /**

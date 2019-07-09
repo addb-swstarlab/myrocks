@@ -40,6 +40,7 @@
 #include <errno.h>
 #include "sql_join_buffer.h"             // CACHE_FIELD
 #include "../fbson/FbsonUpdater.h"
+#include <iostream>
 using std::max;
 using std::min;
 
@@ -2049,9 +2050,9 @@ Field *Field::new_field(MEM_ROOT *root, TABLE *new_table,
   Field *tmp= clone(root);
   if (tmp == NULL)
     return 0;
-
   if (tmp->table->maybe_null)
     tmp->flags&= ~NOT_NULL_FLAG;
+  
   tmp->table= new_table;
   tmp->key_start.init(0);
   tmp->part_of_key.init(0);
@@ -2073,6 +2074,7 @@ Field *Field::new_field(MEM_ROOT *root, TABLE *new_table,
   }
 
   tmp->reset_fields();
+
   return tmp;
 }
 

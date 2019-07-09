@@ -580,6 +580,8 @@ class ha_rocksdb : public my_core::handler {
 
   /* rowkey of the last record we've read, in StorageFormat. */
   String m_last_rowkey;
+  
+  String m_last_rowkey_temp;
 
   /* Buffer used by convert_record_to_storage_format() */
   String m_storage_record;
@@ -958,8 +960,11 @@ public:
 
   /* GPU Accelerator */
   int convert_record_from_storage_format_gpu(const rocksdb::PinnableSlice *const key,
-                                         rocksdb::PinnableSlice * value,
-										 uchar *const buf)
+                                         rocksdb::PinnableSlice * value, uchar *const buf)
+      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  
+  int convert_record_from_storage_format_async(const rocksdb::PinnableSlice *const key,
+                                         rocksdb::PinnableSlice * value, uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
 
   int convert_record_from_storage_format(const rocksdb::Slice *const key,
