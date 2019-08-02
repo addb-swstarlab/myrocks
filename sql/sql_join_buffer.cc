@@ -533,6 +533,7 @@ bool JOIN_CACHE::alloc_buffer()
                    DBUG_SET("-d,jb_alloc_fail");
                    return true;
                   );
+                  
   if (accelerated_mode == ACCEL_MODE_AVX_BLOCK) {
     //buff_size = 32 << 10;
     buff_size = 256 * 1024;
@@ -540,13 +541,17 @@ bool JOIN_CACHE::alloc_buffer()
   } else if (accelerated_mode == ACCEL_MODE_AVX) {
     buff_size = gpu_buff_size;
   } else if (accelerated_mode == ACCEL_MODE_GPU) {
-    buff_size = 1 << 25;  
+//    buff_size = 3221225472L; 
+//    buff_size = 1073741824L;
+      buff_size = 1 << 27;
     //buff_size = gpu_buff_size;
   } else if (accelerated_mode == ACCEL_MODE_AVX_ASYNC) {
     //buff_size = gpu_buff_size;
     buff_size = 256 * 1024;
   } else if (accelerated_mode == ACCEL_MODE_GPU_ASYNC) {
-    buff_size = gpu_buff_size;
+    buff_size = 1 << 27;
+    //buff_size = 3221225472L;
+    //buff_size = 1073741824L;
   }
 
   std::cout << "buff_size is " << buff_size << std::endl;

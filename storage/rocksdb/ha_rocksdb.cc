@@ -2923,6 +2923,7 @@ public:
     global_stats.queries[QUERIES_POINT].inc();
     rocksdb::ReadOptions vf_read_opts = m_read_opts;
     if (accelerated_mode == ACCEL_MODE_AVX) {
+      /* deprecated */
       vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::AVX;
     } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK || accelerated_mode == ACCEL_MODE_AVX_ASYNC) {
       vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::AVX_BLOCK;
@@ -11950,13 +11951,15 @@ bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_n
 //        convert_record_from_storage_format_gpu(&gkeys[record_seq - 1],
 //                &(pvalues.back()), buf);
         int rc = 0;
-        if(accelerated_mode == ACCEL_MODE_AVX_ASYNC || accelerated_mode == ACCEL_MODE_GPU_ASYNC) { 
+        if( accelerated_mode == ACCEL_MODE_AVX_ASYNC ) { 
           rc = convert_record_from_storage_format_async(&(gkeys.back()),
                 &(pvalues.back()), buf);  
         } else {
           rc = convert_record_from_storage_format_gpu(&(gkeys.back()),
                 &(pvalues.back()), buf);
         }
+         gkeys.back().Reset();
+         pvalues.back().Reset();
          gkeys.pop_back();
          pvalues.pop_back();
          *val_num = pvalues.size();
@@ -12011,16 +12014,25 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uc
       rocksdb::Status s = tx->value_filter(
           m_pk_descr->get_cf(), *table_key, gkeys, pvalues, join_idx);
       *val_num = pvalues.size();
+//      std::cout << " value num = " << *val_num << std::endl;
         
       if(s.IsTableEnd()) end_table = true;
 
     } else {
-      int rc = convert_record_from_storage_format_gpu(&(gkeys.back()),
-               &(pvalues.back()), buf);
+      int rc = 0;
+      if( accelerated_mode == ACCEL_MODE_GPU_ASYNC ) { 
+        rc = convert_record_from_storage_format_async(&(gkeys.back()),
+              &(pvalues.back()), buf);  
+      } else {
+        rc = convert_record_from_storage_format_gpu(&(gkeys.back()),
+              &(pvalues.back()), buf);
+      }
+      gkeys.back().Reset();
+      pvalues.back().Reset();
       gkeys.pop_back();
       pvalues.pop_back();
       *val_num = pvalues.size();
-      //std::cout << "rc = " << rc <<std::endl;
+//      std::cout << "val_num in format " << *val_num <<std::endl;
       if(rc) assert(0);
     }
     
@@ -12125,6 +12137,10 @@ int ha_rocksdb::ha_convert_record(int join_idx, void *gpu_handler, uchar* buf) {
     return rc;
 }
 
+int ha_rocksdb::ha_remain_value() {
+    return pvalues.size();
+}
+
 void ha_rocksdb::generate_tbl_key() {
     std::cout << "generate_tbl_key " << std::endl;
 //    int idx = -1;
@@ -12199,6 +12215,9 @@ void ha_rocksdb::generate_tbl_key() {
 
 int ha_rocksdb::ha_release_key() {
     //std::cout << "release key" << std::endl;
+    gkeys.clear();
+    pvalues.clear();
+    
     delete table_key;
     table_key = nullptr;
     return 0;

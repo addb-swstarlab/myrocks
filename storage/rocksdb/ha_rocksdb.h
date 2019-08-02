@@ -675,6 +675,7 @@ class ha_rocksdb : public my_core::handler {
   std::string ha_return_key(std::string * _cond, long * _pivot, int * _target, std::vector<uint> * _type,
           std::vector<uint> * _length, std::vector<uint> * _skip) override;
   int ha_convert_record(int join_idx, void* gpu_handler, uchar * buf) override;
+  int ha_remain_value() override;
   
   void generate_tbl_key();
   void split_from_string(std::string delimiter, std::string target, std::vector<std::string> &ret);
