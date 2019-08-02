@@ -1,6 +1,7 @@
 [submodule "rocksdb"]
 	path = rocksdb
 	url = https://github.com/arbc139/rocksdb-gpu.git
+	branch = master
 [submodule "rqg"]
 	path = rqg
 	url = https://github.com/yoshinorim/rqg.git
