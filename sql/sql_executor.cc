@@ -2019,7 +2019,7 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
     bool end_file = false;
 
     int num_entry = 0;
-    std::cout << "[gpu async] tab pointer = " << (void*)join_tab << " and buf_exist : " << join_tab->buf_exists << std::endl;
+    //std::cout << "[gpu async] tab pointer = " << (void*)join_tab << " and buf_exist : " << join_tab->buf_exists << std::endl;
     //std::future<bool> test;
     //std::cout << "atest valid : " << test.valid() << std::endl;
 
@@ -2050,7 +2050,7 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
          // Reset Cache for read
         join_tab->gpu_buffer[0]->reset_cache(false);      
         
-        std::cout << "[" << join_tab->table->alias << "] : evaluate join record in buffer : " << num_entry << std::endl;
+        //std::cout << "[" << join_tab->table->alias << "] : evaluate join record in buffer : " << num_entry << std::endl;
         /* Nested Loop Join among Buffers */
         while (num_entry > 0) {
             end_record = join_tab->gpu_buffer[0]->get_record();
@@ -2161,7 +2161,7 @@ enum_nested_loop_state sub_select_avxasync(JOIN *join, JOIN_TAB *join_tab,
     bool end_record = false;
     bool end_file = false;
     int num_entry = 0;
-    std::cout << "tab pointer = " << (void*)join_tab << " and buf_exist : " << join_tab->buf_exists << std::endl;
+    //std::cout << "tab pointer = " << (void*)join_tab << " and buf_exist : " << join_tab->buf_exists << std::endl;
     //std::future<bool> test;
     //std::cout << "atest valid : " << test.valid() << std::endl;
 
