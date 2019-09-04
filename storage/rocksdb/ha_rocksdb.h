@@ -663,6 +663,10 @@ class ha_rocksdb : public my_core::handler {
   std::vector <rocksdb::PinnableSlice> avxValues;
   std::vector <rocksdb::PinnableSlice> pvalues;
   std::vector <rocksdb::PinnableSlice> *asyncValues;
+  
+  uint64_t num_entries;
+  
+  
   rocksdb::SlicewithSchema* table_key;
   //rocksdb::GPUManager * gpu_handle;
 
@@ -670,11 +674,6 @@ class ha_rocksdb : public my_core::handler {
   int ha_bulk_load_avx(int record_seq, uchar * buf) override;
   bool ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_num, uchar * buf) override;
   int ha_bulk_load_gpu(int record_seq, int join_idx, int * value_num, uchar * buf) override;
-  int ha_bulk_load_gpuasync(uint table_num, std::vector<std::string> tbl_keys, std::vector<std::string> conds, std::vector<long> pivots,
-          std::vector<int> targets, std::vector<uint> *types, std::vector<uint> *lengths, std::vector<uint> *skips, void ** gpu_handler) override;
-  std::string ha_return_key(std::string * _cond, long * _pivot, int * _target, std::vector<uint> * _type,
-          std::vector<uint> * _length, std::vector<uint> * _skip) override;
-  int ha_convert_record(int join_idx, void* gpu_handler, uchar * buf) override;
   int ha_remain_value() override;
   
   void generate_tbl_key();
@@ -967,7 +966,7 @@ public:
   int convert_record_from_storage_format_async(const rocksdb::PinnableSlice *const key,
                                          rocksdb::PinnableSlice * value, uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
-
+  
   int convert_record_from_storage_format(const rocksdb::Slice *const key,
                                          uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));

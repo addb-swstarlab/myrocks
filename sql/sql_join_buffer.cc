@@ -78,6 +78,30 @@ uint add_flag_field_to_join_cache(uchar *str, uint length, CACHE_FIELD **field)
   return length;    
 }
 
+static
+uint add_flag_field_to_join_cache(uchar *str, uint length, CACHE_FIELD **field, CACHE_FIELD **field_temp)
+{
+  CACHE_FIELD *copy= *field;
+  copy->str= str;
+  copy->length= length;
+  copy->type= 0;
+  copy->field= 0;
+  copy->referenced_field_no= 0;
+  copy->next_copy_rowid= NULL;
+  (*field)++;
+  
+  CACHE_FIELD *copy_temp= *field_temp;
+  copy_temp->str= str;
+  copy_temp->length= length;
+  copy_temp->type= 0;
+  copy_temp->field= 0;
+  copy_temp->referenced_field_no= 0;
+  copy_temp->next_copy_rowid= NULL;
+  (*field_temp)++;
+  
+  return length;    
+}
+
 
 /* 
   Fill in the descriptors of table data fields associated with a join cache    
@@ -192,9 +216,7 @@ uint add_table_data_fields_to_join_cache(JOIN_TAB *tab,
       copy_temp->next_copy_rowid= NULL;
       copy_temp++;
       used_fields_temp--;
-
     }
-
   }
   *descr= copy;
   *temp = copy_temp;
@@ -552,6 +574,8 @@ bool JOIN_CACHE::alloc_buffer()
     buff_size = 1 << 27;
     //buff_size = 3221225472L;
     //buff_size = 1073741824L;
+  } else if (accelerated_mode == ACCEL_MODE_GPU_DONARD) {
+    buff_size = 1 << 27;
   }
 
   std::cout << "buff_size is " << buff_size << std::endl;
@@ -1476,7 +1500,7 @@ bool JOIN_CACHE::get_match_flag_by_pos(uchar *rec_ptr)
 int JOIN_CACHE::read_some_record_fields()
 {
   uchar *init_pos= pos;
-  
+   
   if (pos > last_rec_pos || !records)
     return -1;
 
@@ -1487,8 +1511,10 @@ int JOIN_CACHE::read_some_record_fields()
   CACHE_FIELD *copy= field_descr+flag_fields;
   CACHE_FIELD *copy_end= field_descr+fields;
   bool blob_in_rec_buff= blob_data_is_in_rec_buff(init_pos);
-  for ( ; copy < copy_end; copy++)
+  
+  for ( ; copy < copy_end; copy++) {
     read_record_field(copy, blob_in_rec_buff);
+  }
 
   return (uint) (pos-init_pos);
 }
@@ -1545,8 +1571,9 @@ uint JOIN_CACHE::read_record_field(CACHE_FIELD *copy, bool blob_in_rec_buff)
 {
   uint len;
   /* Do not copy the field if its value is null */ 
-  if (copy->field && copy->field->maybe_null() && is_field_null(copy->field))
+  if (copy->field && copy->field->maybe_null() && is_field_null(copy->field)) {
     return 0;
+  }
 
   if (copy->type == CACHE_BLOB)
   {
@@ -3826,32 +3853,37 @@ void GPU_BUFFER::calc_record_fields()
 void GPU_BUFFER::create_flag_fields()
 {
   CACHE_FIELD *copy;
+  CACHE_FIELD *copy_temp;
   JOIN_TAB *tab = join_tab;
 
   copy= field_descr;
+  copy_temp= field_temp;
 
   length=0;
 
   /* If there is a match flag the first field is always used for this flag */
-  if (with_match_flag)
+  if (with_match_flag) {
     length+= add_flag_field_to_join_cache((uchar*) &tab->found,
                                           sizeof(tab->found),
-	                                  &copy);
+	                                  &copy, &copy_temp);
+  }
 
   /* Create fields for all null bitmaps and null row flags that are needed */
     TABLE *table= tab->table;
 
     /* Create a field for the null bitmap from table if needed */
-    if (tab->used_null_fields || tab->used_uneven_bit_fields)
+    if (tab->used_null_fields || tab->used_uneven_bit_fields) {
       length+= add_flag_field_to_join_cache(table->null_flags,
                                             table->s->null_bytes,
-                                            &copy);
+                                            &copy, &copy_temp);
+    }
 
     /* Create table for the null row flag if needed */
-    if (table->maybe_null)
+    if (table->maybe_null) {
       length+= add_flag_field_to_join_cache((uchar*) &table->null_row,
                                             sizeof(table->null_row),
-                                            &copy);
+                                            &copy, &copy_temp);
+    }
   /* Theoretically the new value of flag_fields can be less than the old one */
   flag_fields= copy-field_descr;
 }
@@ -3876,7 +3908,7 @@ void GPU_BUFFER:: create_remaining_fields(bool all_read_fields)
       rem_field_set= &table->tmp_set;
     }
 
-    if(accelerated_mode == ACCEL_MODE_AVX_ASYNC || accelerated_mode == ACCEL_MODE_GPU_ASYNC) { 
+    if(accelerated_mode == ACCEL_MODE_AVX_ASYNC || accelerated_mode == ACCEL_MODE_GPU_ASYNC || accelerated_mode == ACCEL_MODE_GPU_DONARD) { 
       length+= add_table_data_fields_to_join_cache(tab, rem_field_set,
                                                  &data_field_count, &copy, &copy_temp,
                                                  &data_field_ptr_count,
@@ -3892,6 +3924,7 @@ void GPU_BUFFER:: create_remaining_fields(bool all_read_fields)
     /* SemiJoinDuplicateElimination: allocate space for rowid if needed */
     if (tab->keep_current_rowid)
     {
+      std::cout << "SemiJoin" << std::endl;
       copy->str= table->file->ref;
       copy->length= table->file->ref_length;
       copy->type= 0;

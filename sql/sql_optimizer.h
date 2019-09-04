@@ -478,6 +478,8 @@ public:
       first_select = sub_select_avxasync;
     } else if (accelerated_mode == ACCEL_MODE_GPU_ASYNC) {
       first_select = sub_select_gpuasync;
+    } else if (accelerated_mode == ACCEL_MODE_GPU_DONARD) {
+      first_select = sub_select_gpudonard;   
     } else {  // ACCEL_MODE_OFF
       first_select = sub_select;
     }

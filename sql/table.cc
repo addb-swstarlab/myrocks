@@ -2493,6 +2493,7 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
     outparam->null_flags= (uchar*) (record+ 1+ share->reclength -
                                     share->null_bytes);
 
+  
   /* Setup copy of fields from share, but use the right alias and record */
   for (i=0 ; i < share->fields; i++, field_ptr++)
   {

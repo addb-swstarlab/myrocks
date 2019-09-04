@@ -2910,6 +2910,8 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
           tab[-1].next_select=sub_select_avxasync;
         } else if (accelerated_mode == ACCEL_MODE_GPU_ASYNC && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
           tab[-1].next_select=sub_select_gpuasync;
+        } else if (accelerated_mode == ACCEL_MODE_GPU_DONARD && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
+          tab[-1].next_select=sub_select_gpudonard;  
         } else {
             std::cout << " sub_select " << i <<std::endl;
           tab[-1].next_select=sub_select_op;

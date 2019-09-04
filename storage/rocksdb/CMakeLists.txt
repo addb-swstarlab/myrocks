@@ -21,6 +21,7 @@ STRING(REGEX MATCHALL "[^\n]+" ROCKSDB_LIB_SOURCES ${SCRIPT_OUTPUT})
 
 INCLUDE_DIRECTORIES(
   /usr/local/cuda/include
+  /usr/local/include/donard
   ${CMAKE_SOURCE_DIR}/rocksdb
   ${CMAKE_SOURCE_DIR}/rocksdb/include
   ${CMAKE_SOURCE_DIR}/rocksdb/accelerator
@@ -154,16 +155,18 @@ ENDIF()
 
 # Rocksdb-GPU
 IF (WITH_RUDA)
+  MESSAGE(STATUS "MAKE BEFORE")
   EXECUTE_PROCESS(
     COMMAND make accelerator/cuda/libruda.a -j8
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/rocksdb
   )
+  MESSAGE(STATUS "MAKE AFTER")
   FIND_LIBRARY(RUDA_LIBRARY
     NAMES ruda
     HINTS ${CMAKE_SOURCE_DIR}/rocksdb/accelerator/cuda)
   SET(rocksdb_static_libs
     ${rocksdb_static_libs}
-    ${RUDA_LIBRARY} "-L/usr/local/cuda/lib64" "-lcudart" "-lcudadevrt")
+    ${RUDA_LIBRARY} "-L/usr/local/cuda/lib64" "-lcudart" "-lcudadevrt" "-ldonard")
 ENDIF()
 
 SET(rocksdb_static_libs ${rocksdb_static_libs} "-lrt" "-ldl" "-lpthread")

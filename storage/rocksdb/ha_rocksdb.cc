@@ -2537,7 +2537,7 @@ public:
                               const rocksdb::SlicewithSchema &key,
                               std::vector<rocksdb::PinnableSlice> &keys,
                               std::vector<rocksdb::PinnableSlice> &values, int join_idx) const { rocksdb::Status s; return s;};
-
+                              
   virtual rocksdb::Status async_filter(rocksdb::ColumnFamilyHandle *const column_family,
                               rocksdb::GPUManager *gpu_manager_) const { rocksdb::Status s; return s;};
 
@@ -2929,10 +2929,12 @@ public:
       vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::AVX_BLOCK;
     } else if (accelerated_mode == ACCEL_MODE_GPU || accelerated_mode == ACCEL_MODE_GPU_ASYNC) {
       vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::GPU;
-    } 
+    } else if (accelerated_mode == ACCEL_MODE_GPU_DONARD) {
+      vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::DONARD;
+    }
     return m_rocksdb_tx->ValueFilter(vf_read_opts, column_family, key, keys, values, join_idx);
   }
-
+  
   rocksdb::Status async_filter(rocksdb::ColumnFamilyHandle *const column_family,
                         rocksdb::GPUManager *gpu_manager_) const override {
     // clean PinnableSlice right begfore Get() for multiple gets per statement
@@ -6198,6 +6200,7 @@ int ha_rocksdb::convert_record_from_storage_format_gpu(
     // WARNING! - Don't return before restoring field->ptr and field->null_ptr!
 
     if (isNull) {
+      std::cout<< "isNull" << std::endl;
       if (decode) {
         /* This sets the NULL-bit of this record */
         field->set_null();
@@ -6240,7 +6243,6 @@ int ha_rocksdb::convert_record_from_storage_format_gpu(
 int ha_rocksdb::convert_record_from_storage_format_async(
     const rocksdb::PinnableSlice *const key, rocksdb::PinnableSlice * value, uchar * buf) {
   Rdb_string_reader reader(value);
-  //std::cout << "Slice contents " << value->ToString(1) << std::endl;
   /*
     Decode PK fields from the key
   */
@@ -6307,12 +6309,16 @@ int ha_rocksdb::convert_record_from_storage_format_async(
     uint null_offset = field->null_offset();
     bool maybe_null = field->real_maybe_null();
 
-    field_temp->move_field(buf + field_offset,
-                      maybe_null ? buf + null_offset : nullptr,
-                      field->null_bit);
+//    field_temp->move_field(buf + field_offset,
+//                      maybe_null ? buf + null_offset : nullptr,
+//                      field->null_bit);
+      field_temp->move_field(buf + field_offset,
+                    maybe_null ? table->record[0] + null_offset : nullptr,
+                    field->null_bit);
     // WARNING! - Don't return before restoring field->ptr and field->null_ptr!
 
     if (isNull) {
+      std::cout<< "isNull" << std::endl;
       if (decode) {
         /* This sets the NULL-bit of this record */
         field_temp->set_null();
@@ -6340,9 +6346,12 @@ int ha_rocksdb::convert_record_from_storage_format_async(
       }
     }
     // Restore field->ptr and field->null_ptr
-    field_temp->move_field(table->record_temp[0] + field_offset,
-                      maybe_null ? table->record_temp[0] + null_offset : nullptr,
-                      field->null_bit);
+//    field_temp->move_field(table->record_temp[0] + field_offset,
+//                      maybe_null ? table->record_temp[0] + null_offset : nullptr,
+//                      field->null_bit);
+      field_temp->move_field(table->record_temp[0] + field_offset,
+                    maybe_null ? table->record[0] + null_offset : nullptr,
+                    field->null_bit);
 
     if (err != HA_EXIT_SUCCESS) {
       return err;
@@ -6351,7 +6360,6 @@ int ha_rocksdb::convert_record_from_storage_format_async(
 
   return HA_EXIT_SUCCESS;
 }
-
 
 /*
   @brief
@@ -12020,7 +12028,7 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uc
 
     } else {
       int rc = 0;
-      if( accelerated_mode == ACCEL_MODE_GPU_ASYNC ) { 
+      if( accelerated_mode == ACCEL_MODE_GPU_ASYNC || accelerated_mode == ACCEL_MODE_GPU_DONARD ) { 
         rc = convert_record_from_storage_format_async(&(gkeys.back()),
               &(pvalues.back()), buf);  
       } else {
@@ -12037,104 +12045,6 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uc
     }
     
     DBUG_RETURN(end_table);
-}
-
-int ha_rocksdb::ha_bulk_load_gpuasync(uint table_num, std::vector<std::string> tbl_keys, std::vector<std::string> conds, std::vector<long> pivots,
-        std::vector<int> targets, std::vector<uint> *types, std::vector<uint> *lengths, std::vector<uint> *skips, void ** gpu_handler) {
-    DBUG_ENTER_FUNC();
-    int rc = 0;
-
-//    std::vector<rocksdb::SlicewithSchema> table_keys;
-//
-//    for(uint i = 0; i < table_num; i++) {
-//       std::cout << i << " th async cond = " << conds[i] << " pivot = " << pivots[i] <<std::endl;
-//       accelerator::FilterContext ctx { condToOp(conds[i]), pivots[i] };
-//       rocksdb::SlicewithSchema table_key(tbl_keys[i].data(), tbl_keys[i].size(), ctx,
-//               targets[i], types[i], lengths[i], skips[i]);
-//       std::cout << i << " th async table_key " << table_key.ToString(1) << std::endl;
-//       for(uint j = 0; j < types[i].size(); j++)
-//          std::cout << i << " th async type " << j << "th " << types[i][j] << " " << lengths[i][j] << " " << skips[i][j] << std::endl;
-//       table_keys.push_back(std::move(table_key));
-//    }
-//
-//    *gpu_handler= new rocksdb::GPUManager(table_num, true, &table_keys, 4);
-//
-//    for(uint k =0 ; k < table_num; k++)
-//    std::cout << " GPU Manager table_num = " << table_num << " table_keys "
-//            << (*(((rocksdb::GPUManager *)*gpu_handler)->schemakey))[k].ToString(1) <<std::endl;
-//
-//    Rdb_transaction * const tx = get_or_create_tx(table->in_use);
-//    DBUG_ASSERT(tx != nullptr);
-//
-//    rocksdb::Status s = tx->async_filter(
-//        m_pk_descr->get_cf(), (rocksdb::GPUManager *)*gpu_handler);
-//
-//    std::cout << "value size = " << avxValues.size() << std::endl;
-//    rc = avxValues.size();
-
-    DBUG_RETURN(rc);
-}
-
-std::string ha_rocksdb::ha_return_key(std::string * _cond, long * _pivot, int * _target, std::vector<uint> * _type,
-        std::vector<uint> * _length, std::vector<uint> * _skip) {
-
-    int idx = -1;
-    int target = -1;
-    long pivot = LONG_MAX;
-    std::string cond = "INVALID";
-
-    Item * item = const_cast<Item *>(pushed_cond);
-    std::string cond_str(make_cond_str(item));
-    std::cout << "condition str = " << cond_str << std::endl;
-
-    if (check_cond_not_null(cond_str)) {
-        calculate_parm(cond_str, &pivot, &idx, &cond);
-    }
-
-    unsigned int size = m_decoders_vect.size();
-    std::cout << "ha_return key size = " << size << std::endl;
-
-    for (size_t i = 0; i < m_decoders_vect.size(); ++i) {
-      myrocks::ha_rocksdb::READ_FIELD &field = m_decoders_vect[i];
-      const Rdb_field_encoder * const field_dec = field.m_field_enc;
-
-      if (field_dec->m_field_index == idx) {
-        target = i;
-      }
-
-      /* field type */
-      _type->push_back(typeToInt(field_dec->m_field_type));
-      _skip->push_back(field.m_skip);
-
-      /* field length */
-      if (field_dec->uses_variable_len_encoding()) {
-        my_core::Field_varstring *f =
-                reinterpret_cast<my_core::Field_varstring *>(table->field[field_dec->m_field_index]);
-        _length->push_back(f->length_bytes);
-      } else {
-        _length->push_back(field_dec->m_pack_length_in_rec);
-      }
-    }
-
-    *_cond = cond;
-    *_pivot = pivot;
-    *_target = target;
-//    *_type = type;
-//    *_length = length;
-//    *_skip = skip;
-
-    std::string  table_key((const char *) m_pk_packed_tuple, 4);
-    return table_key;
-}
-
-int ha_rocksdb::ha_convert_record(int join_idx, void *gpu_handler, uchar* buf) {
-    DBUG_ENTER_FUNC();
-    std::vector<rocksdb::PinnableSlice> pop_target = std::move(((rocksdb::GPUManager *)gpu_handler)->asyncValues[join_idx]);
-    int rc = convert_record_from_storage_format_gpu(&gkeys[0],
-            &(pop_target.back()), buf);
-    pop_target.pop_back();
-    if(rc) assert(0);
-    return rc;
 }
 
 int ha_rocksdb::ha_remain_value() {

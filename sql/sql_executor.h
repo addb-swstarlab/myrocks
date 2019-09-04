@@ -291,6 +291,8 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join,JOIN_TAB *join_tab, bool
                                   end_of_records);
 enum_nested_loop_state sub_select_avxasync(JOIN *join,JOIN_TAB *join_tab, bool
                                   end_of_records);
+enum_nested_loop_state sub_select_gpudonard(JOIN *join,JOIN_TAB *join_tab, bool
+                                  end_of_records);
 enum_nested_loop_state
 evaluate_join_record(JOIN *join, JOIN_TAB *join_tab, int error);
 
