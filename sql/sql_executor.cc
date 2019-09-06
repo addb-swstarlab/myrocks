@@ -2039,7 +2039,6 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
         if((first_read || end_record) && !end_table) {
             /* Reset Cache Before write */
             //thd_ = std::async(std::launch::async, allot_execution_buffer, join, join_tab);
-            std::cout << "thread start" << std::endl;
             std::thread thread(std::move(task), join, join_tab, &end_file);
             
             thread.detach();
@@ -2053,7 +2052,6 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
         join_tab->gpu_buffer[0]->reset_cache(false);      
         
         //std::cout << "[" << join_tab->table->alias << "] : evaluate join record in buffer : " << num_entry << std::endl;
-        std::cout << " num_entry " << num_entry << std::endl;
         /* Nested Loop Join among Buffers */
         while (num_entry > 0) {
             end_record = join_tab->gpu_buffer[0]->get_record();
