@@ -664,8 +664,12 @@ class ha_rocksdb : public my_core::handler {
   std::vector <rocksdb::PinnableSlice> pvalues;
   std::vector <rocksdb::PinnableSlice> *asyncValues;
   
-  uint64_t num_entries;
+  std::vector <char *> data_buffers;
+  std::vector <uint64_t> num_entry_vec;
   
+  char *data_buf;
+  uint64_t cur_ptr;
+  uint64_t num_entries;
   
   rocksdb::SlicewithSchema* table_key;
   //rocksdb::GPUManager * gpu_handle;
@@ -965,6 +969,9 @@ public:
   
   int convert_record_from_storage_format_async(const rocksdb::PinnableSlice *const key,
                                          rocksdb::PinnableSlice * value, uchar *const buf)
+      MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
+  
+  int convert_record_from_storage_format_opt(const char* data_buf, uint64_t *cur_ptr, uchar *const buf)
       MY_ATTRIBUTE((__nonnull__, __warn_unused_result__));
   
   int convert_record_from_storage_format(const rocksdb::Slice *const key,

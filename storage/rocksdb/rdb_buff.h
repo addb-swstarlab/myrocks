@@ -243,6 +243,11 @@ public:
     m_ptr = slice->data();
     m_len = slice->size();
   }
+  
+  explicit Rdb_string_reader(const char* ptr, uint size) {
+    m_ptr = ptr;
+    m_len = size;
+  }
 
   /*
     Read the next @param size bytes. Returns pointer to the bytes read, or
