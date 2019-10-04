@@ -12051,7 +12051,7 @@ int ha_rocksdb::ha_bulk_load_avx(int record_seq, uchar* buf) {
         rocksdb::Status s = tx->value_filter(
             m_pk_descr->get_cf(), *table_key, gkeys, avxValues, &data_buf, &num_entries, join_idx);
 
-        std::cout << "avx size = " << avxValues.size() << std::endl;
+        //std::cout << "avx size = " << avxValues.size() << std::endl;
         rc = avxValues.size();
 
     } else {
@@ -12081,6 +12081,8 @@ bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_n
             m_pk_descr->get_cf(), *table_key, gkeys, pvalues, &data_buf, &num_entries, join_idx);
 
         *val_num = pvalues.size();
+        
+       // std::cout << "avx block size = " << pvalues.size() << std::endl;
         
         if(s.IsTableEnd()) end_table = true;
 
@@ -12157,7 +12159,7 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uc
       *val_num = pvalues.size();
       num_entry_vec.back() = num_entries;
       if(accelerated_mode == ACCEL_MODE_GPU_DONARD) *val_num = num_entry_vec.size();
-//      std::cout << " value num = " << *val_num << std::endl;
+      std::cout << " gpu value num = " << *val_num << std::endl;
         
       if(s.IsTableEnd()) end_table = true;
 
@@ -12200,7 +12202,7 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uc
 }
 
 int ha_rocksdb::ha_remain_value() {
-  if ( accelerated_mode == ACCEL_MODE_GPU_DONARD ) return num_entries;
+  if ( accelerated_mode == ACCEL_MODE_GPU_DONARD ) return num_entry_vec.size();
   return pvalues.size();
 }
 
@@ -12246,7 +12248,7 @@ void ha_rocksdb::generate_tbl_key() {
 
         if (field_dec->m_field_index == context.idx) {
             target = field_idx;
-            //std::cout << " target = " << target << std::endl;
+            std::cout << " target = " << target << std::endl;
         }
 
         /* field type */
@@ -12260,7 +12262,7 @@ void ha_rocksdb::generate_tbl_key() {
             my_core::Field_varstring * f =
                     reinterpret_cast<my_core::Field_varstring *>(table->field[field_dec->m_field_index]);
             length[field_idx] = f->length_bytes;
-            std::cout << " length variable = " << f->length_bytes << std::endl;
+            std::cout << " length variable = " << f->length_bytes  << " real length " << f->field_length << std::endl;
         } else {
             length[field_idx] = field_dec->m_pack_length_in_rec;
             std::cout << " length non variable = " << field_dec->m_pack_length_in_rec << std::endl;
@@ -12442,7 +12444,7 @@ void ha_rocksdb::print_cond(const Item * item, void * arg) {
               ctx->idx = ((Item_field *)args[0])->get_field()->field_index;
               ctx->pivot = args[1]->val_int();
               ctx->cond = func->func_name();
-              std::cout << "type = " << type <<std::endl;
+              std::cout << "type = " << type << " unsigned flag!! " << args[1]->unsigned_flag <<std::endl;
               ctx->find = true;
               
             } else if ((type == MYSQL_TYPE_DATE) && (args[1]->type() != Item::Type::FIELD_ITEM )) {
