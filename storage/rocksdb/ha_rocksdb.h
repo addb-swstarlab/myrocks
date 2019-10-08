@@ -674,6 +674,7 @@ class ha_rocksdb : public my_core::handler {
   rocksdb::SlicewithSchema* table_key;
   //rocksdb::GPUManager * gpu_handle;
 
+  int ha_make_key() override;
   int ha_release_key() override;
   int ha_bulk_load_avx(int record_seq, uchar * buf) override;
   bool ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_num, uchar * buf) override;

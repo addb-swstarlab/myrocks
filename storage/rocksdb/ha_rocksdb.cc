@@ -12039,7 +12039,7 @@ int ha_rocksdb::ha_bulk_load_avx(int record_seq, uchar* buf) {
     int join_idx = -1;
 
     if (!record_seq) { // first input
-        if (table_key == nullptr) generate_tbl_key();
+        //if (table_key == nullptr) generate_tbl_key();
         //std::cout << "table name : " << table->alias << std::endl;
         //std::cout << "table key : " << table_key.ToString(1) << std::endl;
 
@@ -12071,7 +12071,7 @@ bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_n
     if (!record_seq) { // first input
 //        std::cout << "table name : " << table->alias << std::endl;
 //        std::cout << "join_idx : " << join_idx << std::endl;
-        if (table_key == nullptr) generate_tbl_key();
+        //if (table_key == nullptr) generate_tbl_key();
         //std::cout << "table key : " << table_key->ToString(1) << std::endl;
         
         Rdb_transaction * const tx = get_or_create_tx(table->in_use);
@@ -12144,7 +12144,7 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uc
     bool end_table = false;
 
     if (!record_seq) { // first input
-      if (table_key == nullptr) generate_tbl_key();
+      //if (table_key == nullptr) generate_tbl_key();
       //std::cout << "table key : " << table_key->ToString(1) << std::endl;
        
       Rdb_transaction * const tx = get_or_create_tx(table->in_use);
@@ -12276,6 +12276,11 @@ void ha_rocksdb::generate_tbl_key() {
     memcpy(&ctx.pivots, &context.pivots, sizeof(long long) * 10 );
     table_key = new rocksdb::SlicewithSchema((const char *) m_pk_packed_tuple, 4,
             ctx, target, type, length, skip);
+}
+
+int ha_rocksdb::ha_make_key() {
+    generate_tbl_key();
+    return 0;
 }
 
 int ha_rocksdb::ha_release_key() {
@@ -12450,6 +12455,7 @@ void ha_rocksdb::print_cond(const Item * item, void * arg) {
             } else if ((type == MYSQL_TYPE_DATE) && (args[1]->type() != Item::Type::FIELD_ITEM )) {
                 
               ctx->idx = ((Item_field *)args[0])->get_field()->field_index;
+              std::cout << "val_int" <<std::endl;
               longlong date_literal = args[1]->val_int();
               longlong year, month, day;
               year = date_literal / 10000;

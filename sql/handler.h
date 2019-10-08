@@ -2923,6 +2923,7 @@ public:
  */
  virtual void cond_pop() { return; }
  /* GPU Accelerator */
+ virtual int ha_make_key() { return 0; }
  virtual int ha_release_key() { return 0; }
  virtual int ha_bulk_load_avx(int record_seq, uchar* record) { return 0; };
  virtual bool ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_num, uchar* record) { return false; };
