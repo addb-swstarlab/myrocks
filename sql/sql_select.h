@@ -35,6 +35,7 @@
 #include "sql_executor.h"
 #include "opt_explain_format.h" // for Extra_tag
 
+#include <iostream>
 #include <functional>
 /**
    Returns a constant of type 'type' with the 'A' lowest-weight bits set.
@@ -1040,6 +1041,9 @@ class Join_tab_compare_default :
 public:
   bool operator()(const JOIN_TAB *jt1, const JOIN_TAB *jt2)
   {
+    std::cout << "compare_default " << jt1->found_records << " and " << jt2->found_records <<std::endl;
+    std::cout << "compare_default22 " << jt1->records << " and " << jt2->records <<std::endl;
+    std::cout << "compare_default33 " << jt1->read_time << " and " << jt2->read_time <<std::endl;
     // Sorting distinct tables, so a table should not be compared with itself
     DBUG_ASSERT(jt1 != jt2);
 
@@ -1078,6 +1082,7 @@ class Join_tab_compare_straight :
 public:
   bool operator()(const JOIN_TAB *jt1, const JOIN_TAB *jt2)
   {
+            std::cout << "compare_straight"  <<std::endl;
     // Sorting distinct tables, so a table should not be compared with itself
     DBUG_ASSERT(jt1 != jt2);
 
@@ -1114,6 +1119,7 @@ public:
 
   bool operator()(const JOIN_TAB *jt1, const JOIN_TAB *jt2)
   {
+            std::cout << "compare_embedded"  <<std::endl;
     // Sorting distinct tables, so a table should not be compared with itself
     DBUG_ASSERT(jt1 != jt2);
 

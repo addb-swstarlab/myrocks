@@ -12325,7 +12325,7 @@ accelerator::Operator ha_rocksdb::condToOp(std::string cond) {
     else if (!cond.compare("<>"))
         return accelerator::NOT_EQ;
     else if (!cond.compare("=="))
-        return accelerator::MATCH;
+        return accelerator::STRMATCH;
     else
         return accelerator::INVALID;
 }
@@ -12481,6 +12481,7 @@ void ha_rocksdb::print_cond(const Item * item, void * arg) {
                   for(int i = 1; i < arg_count; i++) {
                     str = ((Item_string *)args[i])->str_value.c_ptr();
                     length = ((Item_string *)args[i])->str_value.length();
+                    std::cout << "length : " << length << std::endl;
                     std::string hstr;
                     hstr.assign(str, length);
                     ctx->pivots[i-1] = compute_hash(hstr);
@@ -12497,9 +12498,11 @@ void ha_rocksdb::print_cond(const Item * item, void * arg) {
 
                   str = ((Item_string *)args[1])->str_value.c_ptr();
                   length = ((Item_string *)args[1])->str_value.length();
+                  std::cout << "length : " << length << std::endl;
                   
                   std::string hstr;
                   hstr.assign(str, length);
+                 
                   ctx->pivots[0] = compute_hash(hstr);
                   
                   memcpy(&ctx->cpivot[0], str, length);

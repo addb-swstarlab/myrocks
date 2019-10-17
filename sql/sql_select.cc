@@ -2438,14 +2438,6 @@ static bool setup_join_buffering(JOIN_TAB *tab, JOIN *join,
   const uint tableno= tab - join->join_tab;
   const uint tab_sj_strategy= tab->get_sj_strategy();
 
-  if(accelerated_mode != ACCEL_MODE_OFF && strcmp(tab->table->file->table_type(),"MEMORY")){
-  /* GPU Accelerator */
-    tab->gpu_buffer[0] = new GPU_BUFFER(join, tab, NULL);
-    tab->gpu_buffer[0]->init();
-    tab->gpu_buffer[1] = new GPU_BUFFER(join, tab, NULL);
-    tab->gpu_buffer[1]->init();
-  }
-
   bool use_bka_unique= false;
   DBUG_EXECUTE_IF("test_bka_unique", use_bka_unique= true;);
   *icp_other_tables_ok= TRUE;
@@ -2837,11 +2829,13 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
   Opt_trace_context * const trace= &join->thd->opt_trace;
   Opt_trace_object wrapper(trace);
   Opt_trace_array trace_refine_plan(trace, "refine_plan");
-
+  bool normal_table = false;
+  
   if (setup_semijoin_dups_elimination(join, options, no_jbuf_after))
     DBUG_RETURN(TRUE); /* purecov: inspected */
 
-  std::cout << "const tables : " << join->const_tables << " table num : " << join->tables << std::endl;
+  std::cout << "const tables : " << join->const_tables << " table num : " 
+          << join->primary_tables << " tables : " << join->tables << std::endl;
   for (uint i= join->const_tables; i < join->tables; i++)
   {
     JOIN_TAB *const tab= join->join_tab+i;
@@ -2898,22 +2892,39 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
                                &icp_other_tables_ok))
         DBUG_RETURN(true);
 
-      if (tab->use_join_cache != JOIN_CACHE::ALG_NONE) {       
-        if ((accelerated_mode == ACCEL_MODE_AVX) && strcmp(table->file->table_type(),"MEMORY") && i <= join->primary_tables) {
+      {
+        std::cout << "jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj ::: " << i << std::endl;
+        if (table->file == NULL) {
+          std::cout <<"ok" <<std::endl;
+          normal_table = true;
+        } else if (strcmp(table->file->table_type(), "MEMORY")) {
+          normal_table = true;
+        } 
+        
+        if ((accelerated_mode != ACCEL_MODE_OFF) && normal_table && (i == 0)) {
+          tab->gpu_buffer[0] = new GPU_BUFFER(join, tab, NULL);
+          tab->gpu_buffer[0]->init();
+          tab->gpu_buffer[1] = new GPU_BUFFER(join, tab, NULL);
+          tab->gpu_buffer[1]->init();
+        }
+      }
+          
+      if (tab->use_join_cache != JOIN_CACHE::ALG_NONE) {     
+               
+        if ((accelerated_mode == ACCEL_MODE_AVX) && normal_table && i <= join->primary_tables) {
     	  tab[-1].next_select=sub_select_avx;
-        } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
-          std::cout << " sub_select_avxblock " << i <<std::endl;
+        } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK && normal_table && i <= join->primary_tables) {
           tab[-1].next_select=sub_select_avxblock;
-        } else if (accelerated_mode == ACCEL_MODE_GPU && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
+        } else if (accelerated_mode == ACCEL_MODE_GPU && normal_table && i <= join->primary_tables) {
           tab[-1].next_select=sub_select_gpu;
-        } else if (accelerated_mode == ACCEL_MODE_AVX_ASYNC && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
+        } else if (accelerated_mode == ACCEL_MODE_AVX_ASYNC && normal_table && i <= join->primary_tables) {
           tab[-1].next_select=sub_select_avxasync;
-        } else if (accelerated_mode == ACCEL_MODE_GPU_ASYNC && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
+        } else if (accelerated_mode == ACCEL_MODE_GPU_ASYNC && normal_table && i <= join->primary_tables) {
           tab[-1].next_select=sub_select_gpuasync;
-        } else if (accelerated_mode == ACCEL_MODE_GPU_DONARD && strcmp(table->file->table_type(), "MEMORY") && i <= join->primary_tables) {
+        } else if (accelerated_mode == ACCEL_MODE_GPU_DONARD && normal_table && i <= join->primary_tables) {
           tab[-1].next_select=sub_select_gpudonard;  
         } else {
-            std::cout << " sub_select " << i <<std::endl;
+          std::cout << " sub_select " << i <<std::endl;
           tab[-1].next_select=sub_select_op;
         }
       }
