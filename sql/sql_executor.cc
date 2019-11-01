@@ -2731,7 +2731,13 @@ evaluate_join_record(JOIN *join, JOIN_TAB *join_tab)
 {
   bool not_used_in_distinct=join_tab->not_used_in_distinct;
   ha_rows found_records=join->found_records;
-  Item *condition= join_tab->condition();
+  Item *condition;
+  if(accelerated_mode == ACCEL_MODE_OFF) {
+    condition = join_tab->condition();
+  } else {
+    condition = join_tab->pre_idx_push_cond != NULL ? join_tab->pre_idx_push_cond : join_tab->condition();
+  }
+ 
   bool found= TRUE;
   DBUG_ENTER("evaluate_join_record");
   DBUG_PRINT("enter",
