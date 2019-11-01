@@ -468,6 +468,7 @@ public:
     no_const_tables= FALSE;
     /* can help debugging (makes smaller test cases): */
     DBUG_EXECUTE_IF("no_const_tables",no_const_tables= TRUE;);
+    std::cout << "init ---- init " << std::endl;
     if(accelerated_mode == ACCEL_MODE_AVX) {
       first_select = sub_select_avx;
     } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK) {

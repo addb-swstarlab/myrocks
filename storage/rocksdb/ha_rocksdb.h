@@ -646,7 +646,7 @@ class ha_rocksdb : public my_core::handler {
       }
     
       long pivot;
-      
+      int comp_field;
       char cpivot[10][32];
       int str_num;
       

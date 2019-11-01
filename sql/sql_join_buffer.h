@@ -556,6 +556,7 @@ public:
 
   /* Initialize the GPU BUFFER */
   int init();
+  bool alloc_buffer();
   bool put_record_buf();
   bool put_record_buf_async();
   void calc_record_fields();

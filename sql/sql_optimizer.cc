@@ -3769,10 +3769,11 @@ const_table_extraction_done:
 
   if (sj_nests && optimize_semijoin_nests_for_materialization(join))
     DBUG_RETURN(true);
-
+  std::cout << "choose_table11 " <<std::endl;
   if (Optimize_table_order(thd, join, NULL).choose_table_order())
     DBUG_RETURN(true);
 
+  std::cout << "choose_table " <<std::endl;
   DBUG_EXECUTE_IF("bug13820776_1", thd->killed= THD::KILL_QUERY;);
   if (thd->killed || thd->is_error())
     DBUG_RETURN(true);

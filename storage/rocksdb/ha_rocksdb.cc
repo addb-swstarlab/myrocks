@@ -12007,7 +12007,7 @@ const char *dbug_print_item(Item *const item) {
  *  If condition is null, (Item*)nullptr is returned */
 
 const char * ha_rocksdb::make_cond_str(Item * item) {
-  static char cond_buf[512];
+  static char cond_buf[2048];
   String str(cond_buf, sizeof(cond_buf), &my_charset_bin);
   str.length(0);
   if (!item)
@@ -12175,6 +12175,15 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uc
         pvalues.pop_back();
         *val_num = pvalues.size();        
       } else if ( accelerated_mode == ACCEL_MODE_GPU_DONARD ) {
+        if(gkeys.size() != 0) {
+          rc = convert_record_from_storage_format_async(&(gkeys.back()),
+                &(pvalues.back()), buf);
+          gkeys.back().Reset();
+          pvalues.back().Reset();
+          gkeys.pop_back();
+          pvalues.pop_back();
+        }
+        
         rc = convert_record_from_storage_format_opt(data_buffers.back() + cur_ptr, &cur_ptr, buf);
         num_entry_vec.back() -= 1;
         if(num_entry_vec.back() == 0) {
@@ -12207,7 +12216,7 @@ int ha_rocksdb::ha_remain_value() {
 }
 
 void ha_rocksdb::generate_tbl_key() {
-    std::cout << "generate_tbl_key " << std::endl;
+    //std::cout << "generate_tbl_key " << std::endl;
 //    int idx = -1;
     int target = -1;
 //    long pivot = LONG_MAX;
@@ -12220,10 +12229,11 @@ void ha_rocksdb::generate_tbl_key() {
        
     if(item) {
         item->traverse_cond(&print_cond, (void *) &context, Item::PREFIX);
+        
     }
-    
-//    std::string cond_str(make_cond_str(item));
-//    std::cout << "condition str = " << cond_str << std::endl;
+   
+    std::string cond_str(make_cond_str(item));
+    std::cout << "condition str = " << cond_str << std::endl;
 
 //    if (check_cond_not_null(cond_str)) {
 //        calculate_parm(cond_str, &pivot, &idx, &cond);
@@ -12248,30 +12258,31 @@ void ha_rocksdb::generate_tbl_key() {
 
         if (field_dec->m_field_index == context.idx) {
             target = field_idx;
-            std::cout << " target = " << target << std::endl;
+            //std::cout << " target = " << target << std::endl;
         }
 
         /* field type */
         type[field_idx] = typeToInt(field_dec->m_field_type);
         skip[field_idx] = it->m_skip;
-        std::cout << " type = " << typeToInt(field_dec->m_field_type) << std::endl; 
-        std::cout << " skip = " << it->m_skip << std::endl;
+        //std::cout << " type = " << typeToInt(field_dec->m_field_type) << std::endl; 
+        //std::cout << " skip = " << it->m_skip << std::endl;
 
         /* field length */
         if (field_dec->uses_variable_len_encoding()) {
             my_core::Field_varstring * f =
                     reinterpret_cast<my_core::Field_varstring *>(table->field[field_dec->m_field_index]);
             length[field_idx] = f->length_bytes;
-            std::cout << " length variable = " << f->length_bytes  << " real length " << f->field_length << std::endl;
+            //std::cout << " length variable = " << f->length_bytes  << " real length " << f->field_length << std::endl;
         } else {
             length[field_idx] = field_dec->m_pack_length_in_rec;
-            std::cout << " length non variable = " << field_dec->m_pack_length_in_rec << std::endl;
+           // std::cout << " length non variable = " << field_dec->m_pack_length_in_rec << std::endl;
         }
 
         field_idx++;
     }
 
-    accelerator::FilterContext ctx { condToOp(context.cond), context.pivot, context.str_num, {0,}, {0,} };
+    std::cout <<" table key : " << rocksdb::Slice((const char *)m_pk_packed_tuple, 4).ToString(1) << std::endl;
+    accelerator::FilterContext ctx { condToOp(context.cond), context.pivot, context.comp_field, context.str_num, {0,}, {0,} };
     memcpy(&ctx.cpivot, &context.cpivot, sizeof(char) * 32 * 10 );
     memcpy(&ctx.pivots, &context.pivots, sizeof(long long) * 10 );
     table_key = new rocksdb::SlicewithSchema((const char *) m_pk_packed_tuple, 4,
@@ -12441,28 +12452,37 @@ void ha_rocksdb::print_cond(const Item * item, void * arg) {
         if(arg_count) {
             Item** args = func->arguments();
             enum_field_types type = args[0]->field_type();
-            std::cout << "type = " << type <<std::endl;
+            //std::cout << "type = " << type <<std::endl;
 
             /* TODO: field func field */
-            if(((type == MYSQL_TYPE_LONG) || (type == MYSQL_TYPE_FLOAT)) && (args[1]->type() != Item::Type::FIELD_ITEM )) {
-              
+            if(((type == MYSQL_TYPE_LONG) || (type == MYSQL_TYPE_FLOAT))) {
               ctx->idx = ((Item_field *)args[0])->get_field()->field_index;
-              ctx->pivot = args[1]->val_int();
+              if (args[1]->type() == Item::Type::FIELD_ITEM) {
+                ctx->comp_field = 1;
+                ctx->pivot = ((Item_field *)args[1])->get_field()->field_index;
+              } else {
+                ctx->pivot = args[1]->val_int();
+              }
               ctx->cond = func->func_name();
-              std::cout << "type = " << type << " unsigned flag!! " << args[1]->unsigned_flag <<std::endl;
+             // std::cout << "type = " << type << " unsigned flag!! " << args[1]->unsigned_flag <<std::endl;
               ctx->find = true;
               
-            } else if ((type == MYSQL_TYPE_DATE) && (args[1]->type() != Item::Type::FIELD_ITEM )) {
+            } else if ((type == MYSQL_TYPE_DATE)) {
                 
               ctx->idx = ((Item_field *)args[0])->get_field()->field_index;
-              std::cout << "val_int" <<std::endl;
-              longlong date_literal = args[1]->val_int();
-              longlong year, month, day;
-              year = date_literal / 10000;
-              month = (date_literal - (year * 10000)) / 100;
-              day = date_literal % 100;
+              if (args[1]->type() == Item::Type::FIELD_ITEM) {
+                ctx->comp_field = 1;
+                ctx->pivot = ((Item_field *)args[1])->get_field()->field_index;
+              } else {
+                //std::cout << "val_int" <<std::endl;
+                longlong date_literal = args[1]->val_int();
+                longlong year, month, day;
+                year = date_literal / 10000;
+                month = (date_literal - (year * 10000)) / 100;
+                day = date_literal % 100;
 
-              ctx->pivot = (year * 16 * 32) + (month * 32) + day;
+                ctx->pivot = (year * 16 * 32) + (month * 32) + day;
+              }
               
               ctx->cond = func->func_name();
               ctx->find = true;
@@ -12476,12 +12496,12 @@ void ha_rocksdb::print_cond(const Item * item, void * arg) {
                 if (func_type == Item_func::Functype::IN_FUNC) {
                   ctx->idx = ((Item_field *)args[0])->get_field()->field_index;
                   ctx->str_num = arg_count - 1;
-                  std::cout << "str_num = " << ctx->str_num << std::endl;
+                  //std::cout << "str_num = " << ctx->str_num << std::endl;
                   
                   for(int i = 1; i < arg_count; i++) {
                     str = ((Item_string *)args[i])->str_value.c_ptr();
                     length = ((Item_string *)args[i])->str_value.length();
-                    std::cout << "length : " << length << std::endl;
+                    //std::cout << "length : " << length << std::endl;
                     std::string hstr;
                     hstr.assign(str, length);
                     ctx->pivots[i-1] = compute_hash(hstr);
@@ -12494,11 +12514,11 @@ void ha_rocksdb::print_cond(const Item * item, void * arg) {
                 } else if (func_type == Item_func::Functype::EQ_FUNC) {
                   ctx->idx = ((Item_field *)args[0])->get_field()->field_index;
                   ctx->str_num = arg_count - 1;
-                  std::cout << "str_num = " << ctx->str_num << std::endl;
+                  //std::cout << "str_num = " << ctx->str_num << std::endl;
 
                   str = ((Item_string *)args[1])->str_value.c_ptr();
                   length = ((Item_string *)args[1])->str_value.length();
-                  std::cout << "length : " << length << std::endl;
+                 // std::cout << "length : " << length << std::endl;
                   
                   std::string hstr;
                   hstr.assign(str, length);

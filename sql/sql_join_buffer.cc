@@ -556,29 +556,7 @@ bool JOIN_CACHE::alloc_buffer()
                    return true;
                   );
                   
-  if (accelerated_mode == ACCEL_MODE_AVX_BLOCK) {
-    //buff_size = 32 << 10;
-    buff_size = 256 * 1024;
-    //buff_size = 64 << 20;
-  } else if (accelerated_mode == ACCEL_MODE_AVX) {
-    buff_size = gpu_buff_size;
-  } else if (accelerated_mode == ACCEL_MODE_GPU) {
-//    buff_size = 3221225472L; 
-//    buff_size = 1073741824L;
-      buff_size = 1 << 27;
-    //buff_size = gpu_buff_size;
-  } else if (accelerated_mode == ACCEL_MODE_AVX_ASYNC) {
-    //buff_size = gpu_buff_size;
-    buff_size = 256 * 1024;
-  } else if (accelerated_mode == ACCEL_MODE_GPU_ASYNC) {
-    buff_size = 1 << 27;
-    //buff_size = 3221225472L;
-    //buff_size = 1073741824L;
-  } else if (accelerated_mode == ACCEL_MODE_GPU_DONARD) {
-    buff_size = 1 << 27;
-  }
-
-  std::cout << "buff_size is " << buff_size << std::endl;
+  std::cout << "join cache buff_size is " << buff_size << std::endl;
   buff= (uchar*) my_malloc(buff_size, MYF(0));
   return buff == NULL;
 }
@@ -3553,6 +3531,43 @@ int GPU_BUFFER::init()
   reset_cache(true);
 
   DBUG_RETURN(0);
+}
+
+bool GPU_BUFFER::alloc_buffer()
+{
+  DBUG_EXECUTE_IF("jb_alloc_fail",
+                   buff= NULL;
+                   DBUG_SET("-d,jb_alloc_fail");
+                   return true;
+                  );
+                  
+  if (accelerated_mode == ACCEL_MODE_AVX_BLOCK) {
+    //buff_size = 32 << 10;
+    buff_size = 256 * 1024;
+    //buff_size = 64 << 20;
+  } else if (accelerated_mode == ACCEL_MODE_AVX) {
+    buff_size = gpu_buff_size;
+  } else if (accelerated_mode == ACCEL_MODE_GPU) {
+//    buff_size = 3221225472L; 
+//    buff_size = 1073741824L;
+      buff_size = 1 << 27;
+    //buff_size = gpu_buff_size;
+  } else if (accelerated_mode == ACCEL_MODE_AVX_ASYNC) {
+    //buff_size = gpu_buff_size;
+    buff_size = 256 * 1024;
+  } else if (accelerated_mode == ACCEL_MODE_GPU_ASYNC) {
+    buff_size = 1 << 27;
+    //buff_size = 256 * 1024;
+    //buff_size = 3221225472L;
+    //buff_size = 1073741824L;
+  } else if (accelerated_mode == ACCEL_MODE_GPU_DONARD) {
+     buff_size = 1 << 27;
+    //buff_size = 3221225472L;
+  }
+
+  std::cout << "GPU buff_size is " << buff_size << std::endl;
+  buff= (uchar*) my_malloc(buff_size, MYF(0));
+  return buff == NULL;
 }
 
 bool GPU_BUFFER::put_record_buf() {

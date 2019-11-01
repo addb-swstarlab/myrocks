@@ -1139,6 +1139,7 @@ bool Optimize_table_order::choose_table_order()
         Apply heuristic: pre-sort all access plans with respect to the number of
         records accessed.
     */
+    
     if (straight_join)
       merge_sort(join->best_ref + join->const_tables,
                  join->best_ref + join->tables,
@@ -1157,7 +1158,7 @@ bool Optimize_table_order::choose_table_order()
                Opt_trace_context::GREEDY_SEARCH);
   if (straight_join)
     optimize_straight_join(join_tables);
-  else
+  else 
   {
     if (greedy_search(join_tables))
       DBUG_RETURN(true);
@@ -1170,7 +1171,7 @@ bool Optimize_table_order::choose_table_order()
   // Fix semi-join strategies and perform final cost calculation.
   if (fix_semijoin_strategies())
     DBUG_RETURN(true);
-
+  
   DBUG_RETURN(false);
 }
 

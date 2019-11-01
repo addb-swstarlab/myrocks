@@ -1041,9 +1041,10 @@ class Join_tab_compare_default :
 public:
   bool operator()(const JOIN_TAB *jt1, const JOIN_TAB *jt2)
   {
-    std::cout << "compare_default " << jt1->found_records << " and " << jt2->found_records <<std::endl;
-    std::cout << "compare_default22 " << jt1->records << " and " << jt2->records <<std::endl;
-    std::cout << "compare_default33 " << jt1->read_time << " and " << jt2->read_time <<std::endl;
+    std::cout << "compare_default : " << jt1->table->alias << " and " << jt2->table->alias << std::endl;
+    std::cout << "found_records "<< jt1->found_records << " and " << jt2->found_records <<std::endl;
+    std::cout << "records " << jt1->records << " and " << jt2->records <<std::endl;
+    std::cout << "read_time " << jt1->read_time << " and " << jt2->read_time <<std::endl;
     // Sorting distinct tables, so a table should not be compared with itself
     DBUG_ASSERT(jt1 != jt2);
 
@@ -1055,10 +1056,10 @@ public:
     const bool jt1_keydep_jt2= jt1->key_dependent & jt2->table->map;
     const bool jt2_keydep_jt1= jt2->key_dependent & jt1->table->map;
 
-    if (jt1_keydep_jt2 && !jt2_keydep_jt1)
-      return false;
-    if (jt2_keydep_jt1 && !jt1_keydep_jt2)
-      return true;
+    if (jt1_keydep_jt2 && !jt2_keydep_jt1) 
+        return false;
+    if (jt2_keydep_jt1 && !jt1_keydep_jt2) 
+        return true;
 
     if (jt1->found_records > jt2->found_records)
       return false;

@@ -42,6 +42,7 @@
 #include <algorithm>
 #include <future>
 #include <thread>
+#include <time.h>
 
 using std::max;
 using std::min;
@@ -908,7 +909,7 @@ do_select(JOIN *join)
   enum_nested_loop_state error= NESTED_LOOP_OK;
   DBUG_ENTER("do_select");
 
-  std::cout << "[DO_SELECT]" <<std::endl;
+  //std::cout << "[DO_SELECT]" <<std::endl;
   join->send_records=0;
   if (join->plan_is_const() && !join->need_tmp)
   {
@@ -1071,7 +1072,6 @@ do_select_accel(JOIN *join)
   enum_nested_loop_state error= NESTED_LOOP_OK;
   DBUG_ENTER("do_select_accel");
 
-  std::cout << "[DO_SELECT_ACCEL] " <<std::endl;
   join->send_records=0;
   if (join->plan_is_const() && !join->need_tmp)
   {
@@ -1138,6 +1138,7 @@ do_select_accel(JOIN *join)
     JOIN_TAB *join_tab= join->join_tab + join->const_tables;
     DBUG_ASSERT(join->primary_tables);
 
+   // std::cout << "table type " << join_tab->table->file->table_type() << std::endl;
     if(!strcmp(join_tab->table->file->table_type(), "MEMORY")) join->first_select = sub_select;
 
     error= join->first_select(join,join_tab,0);
@@ -1276,6 +1277,7 @@ sub_select_op(JOIN *join, JOIN_TAB *join_tab, bool end_of_records)
 
   DBUG_ENTER("sub_select_op");
 
+  //std::cout << " sub_select_op " << std::endl;
   if (join->thd->killed)
   {
     /* The user has aborted the execution of the query */
@@ -1436,6 +1438,7 @@ enum_nested_loop_state
 sub_select(JOIN *join,JOIN_TAB *join_tab,bool end_of_records)
 {
   DBUG_ENTER("sub_select");
+  //std::cout << "sub_select : " << join_tab->table->alias << std::endl;
   join_tab->table->null_row=0;
   if (end_of_records)
   {
@@ -1622,28 +1625,43 @@ enum_nested_loop_state sub_select_avxblock(JOIN *join, JOIN_TAB *join_tab,
 
 //    std::cout << "join idx = " << join_tab - join->join_tab << std::endl;
 //    std::cout << "sub_select_avxblock call -- " << join_tab->table->alias << std::endl;
-    if (!join->gpu_complete) {
-        /* Stage 1 : Parameter Setting */
-//        std::cout << "accel initialize " << std::endl;
-//        std::cout << "const_tables = " << join->const_tables << " table num : " << join->tables << std::endl; 
-//        std::cout << "primary tables = " << join->primary_tables << " tmp tables: " << join->tmp_tables << std::endl; 
-        for (uint i = join->const_tables; i < join->primary_tables; i++) {
-//            std::cout << "a " << std::endl;
-            JOIN_TAB * const tab = join->join_tab + i;
-            TABLE * const table = tab->table;
-            
-//            std::cout << "table name = " << table->alias << " type = " << table->file->table_type() << std::endl;
-
-            Item * cond = tab->condition();
-            table->file->cond_push(cond);
-            table->file->ha_rnd_init(true);
-            table->file->ha_rnd_end();
-        }
-        join_tab->table->file->ha_make_key();
-        join->gpu_complete = true;
+//    if (!join->gpu_complete) {
+//        /* Stage 1 : Parameter Setting */
+////        std::cout << "accel initialize " << std::endl;
+////        std::cout << "const_tables = " << join->const_tables << " table num : " << join->tables << std::endl; 
+////        std::cout << "primary tables = " << join->primary_tables << " tmp tables: " << join->tmp_tables << std::endl; 
+//        for (uint i = join->const_tables; i < join->primary_tables; i++) {
+////            std::cout << "a " << std::endl;
+//            JOIN_TAB * const tab = join->join_tab + i;
+//            TABLE * const table = tab->table;
+//            
+////            std::cout << "table name = " << table->alias << " type = " << table->file->table_type() << std::endl;
+//
+//            Item * cond = tab->condition();
+//            table->file->cond_push(cond);
+//            table->file->ha_rnd_init(true);
+//            table->file->ha_rnd_end();
+//        }
+//        join_tab->table->file->ha_make_key();
+//        join->gpu_complete = true;
+//    }
+    std::cout << "sub select_ avx block " << std::endl;
+    JOIN_TAB * const tab = join->join_tab + join->const_tables;
+    TABLE * const table = tab->table;
+    Item *cond;
+    if(tab->pre_idx_push_cond != NULL) {
+      cond = tab->pre_idx_push_cond;
+    } else {
+      cond = tab->condition();
     }
+    table->file->cond_push(cond);
+    table->file->ha_rnd_init(true);
+    table->file->ha_rnd_end();
+    join_tab->table->file->ha_make_key();
     
+        std::cout << "sub select_ avx block  22" << std::endl;
     if (end_of_records) {
+      //std::cout <<"end_record" <<std::endl;
         join_tab->table->file->ha_release_key();
         enum_nested_loop_state nls = (*join_tab->next_select)(join,
                 join_tab + 1, end_of_records);
@@ -1655,9 +1673,34 @@ enum_nested_loop_state sub_select_avxblock(JOIN *join, JOIN_TAB *join_tab,
         DBUG_RETURN(NESTED_LOOP_ERROR);
     }
 
-    join->return_tab = join_tab;
-    join_tab->not_null_compl = true;
-    join_tab->found_match = false;
+    if (join_tab->starts_weedout())
+    {
+      do_sj_reset(join_tab->flush_weedout_table);
+    }
+
+    join->return_tab= join_tab;
+    join_tab->not_null_compl= true;
+    join_tab->found_match= false;
+
+    if (join_tab->last_inner)
+    {
+      /* join_tab is the first inner table for an outer join operation. */
+
+      /* Set initial state of guard variables for this table.*/
+      join_tab->found=0;
+
+      /* Set first_unmatched for the last inner table of this group */
+      join_tab->last_inner->first_unmatched= join_tab;
+    }
+    if (join_tab->do_firstmatch() || join_tab->do_loosescan())
+    {
+      /*
+        join_tab is the first table of a LooseScan range, or has a "jump"
+        address in a FirstMatch range.
+        Reset the matching for this round of execution.
+      */
+      join_tab->match_tab->found_match= false;
+    }
 
     //join_tab->gpu_buffer->reset_cache(false);
 
@@ -1665,7 +1708,7 @@ enum_nested_loop_state sub_select_avxblock(JOIN *join, JOIN_TAB *join_tab,
     bool end_table = false;
     bool end_record = false;
     int record_num = 0;
-    std::cout << "tab pointer = " << (void*)join_tab << " and buf_exist : " << join_tab->buf_exists << std::endl;
+    std::cout << "tab pointer = " << (void*)join_tab << " and name : " << join_tab->table->alias << std::endl;
 
     while (rc == NESTED_LOOP_OK && join->return_tab >= join_tab) {
         /* When comes from recursive path, We don't need to create a new buffer if already exists */
@@ -1838,20 +1881,33 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
     DBUG_ENTER("sub_select_gpu");
     enum_nested_loop_state rc = NESTED_LOOP_OK;
     join_tab->table->null_row = 0;
-    if (!join->gpu_complete) {
-      for (uint i = join->const_tables; i < join->primary_tables; i++) {
-        JOIN_TAB * const tab = join->join_tab + i;
-        TABLE * const table = tab->table;
-        Item * cond = tab->condition();
-        table->file->cond_push(cond);
-        table->file->ha_rnd_init(true);
-        table->file->ha_rnd_end();
-      }
-      join_tab->table->file->ha_make_key();
-      join->gpu_complete = true;
-    }
+//    if (!join->gpu_complete) {
+//      for (uint i = join->const_tables; i < join->primary_tables; i++) {
+//        JOIN_TAB * const tab = join->join_tab + i;
+//        TABLE * const table = tab->table;
+//        Item * cond = tab->condition();
+//        table->file->cond_push(cond);
+//        table->file->ha_rnd_init(true);
+//        table->file->ha_rnd_end();
+//      }
+//      join_tab->table->file->ha_make_key();
+//      join->gpu_complete = true;
+//    }
     
-    std::cout << "end_of_record" << std::endl;
+    JOIN_TAB * const tab = join->join_tab + join->const_tables;
+    TABLE * const table = tab->table;
+    Item *cond;
+    if(tab->pre_idx_push_cond != NULL) {
+      cond = tab->pre_idx_push_cond;
+    } else {
+      cond = tab->condition();
+    }
+    table->file->cond_push(cond);
+    table->file->ha_rnd_init(true);
+    table->file->ha_rnd_end();
+    join_tab->table->file->ha_make_key();
+    
+    //std::cout << "end_of_record" << std::endl;
     if (end_of_records) {
       join_tab->table->file->ha_release_key();
       enum_nested_loop_state nls = (*join_tab->next_select)(join,
@@ -1859,24 +1915,50 @@ sub_select_gpu(JOIN *join,JOIN_TAB *join_tab, bool end_of_records)
       DBUG_RETURN(nls);
     }
 
-    std::cout << "prepare_scan" << std::endl;
+    //std::cout << "prepare_scan" << std::endl;
   /* Stage 2 : Join Processing */
     if (join_tab->prepare_scan()) {
       DBUG_RETURN(NESTED_LOOP_ERROR);
     }
 
-    join->return_tab = join_tab;
-    join_tab->not_null_compl = true;
-    join_tab->found_match = false;
+    if (join_tab->starts_weedout())
+    {
+      do_sj_reset(join_tab->flush_weedout_table);
+    }
 
+    join->return_tab= join_tab;
+    join_tab->not_null_compl= true;
+    join_tab->found_match= false;
+
+    if (join_tab->last_inner)
+    {
+      /* join_tab is the first inner table for an outer join operation. */
+
+      /* Set initial state of guard variables for this table.*/
+      join_tab->found=0;
+
+      /* Set first_unmatched for the last inner table of this group */
+      join_tab->last_inner->first_unmatched= join_tab;
+    }
+    if (join_tab->do_firstmatch() || join_tab->do_loosescan())
+    {
+      /*
+        join_tab is the first table of a LooseScan range, or has a "jump"
+        address in a FirstMatch range.
+        Reset the matching for this round of execution.
+      */
+      join_tab->match_tab->found_match= false;
+    }
+
+    join->thd->get_stmt_da()->reset_current_row_for_warning();
     //join_tab->gpu_buffer->reset_cache(false);
 
     bool first_read = true;
     bool end_table = false;
     bool end_record = false;
     int record_num = 0;
-    std::cout << "tab pointer = " << (void*)join_tab << " and join_tab name = " << join_tab->table->alias
-            << " and buf_exist : " << join_tab->buf_exists << std::endl;
+    //std::cout << "tab pointer = " << (void*)join_tab << " and join_tab name = " << join_tab->table->alias
+    //        << " and buf_exist : " << join_tab->buf_exists << std::endl;
 
     while (rc == NESTED_LOOP_OK && join->return_tab >= join_tab) {
         /* When comes from recursive path, We don't need to create a new buffer if already exists */
@@ -1953,10 +2035,10 @@ bool allot_execution_buffer_gpu(JOIN *join, JOIN_TAB *join_tab, bool * end_file)
     bool buf_full = false;
     bool end_table = false;
     int record_num = join_tab->table->file->ha_remain_value();
-    std::cout << "allot execution buffer " <<std::endl;
-    
+    time_t start, end;
     join_tab->gpu_buffer[1]->reset_cache(true);
 
+    start = time(NULL);
     /* Put record to Buffer until buffer is full */
     while (!buf_full) {
       /* If there is no entry to fetch, then break */
@@ -1975,7 +2057,9 @@ bool allot_execution_buffer_gpu(JOIN *join, JOIN_TAB *join_tab, bool * end_file)
         *end_file = join_tab->table->file->ha_bulk_load_gpu(0, join_tab - join->join_tab, &record_num,
         join_tab->table->record_temp[0]);
       }
-    }    
+    }
+    end = time(NULL);
+    //std::cout << "allot execution buffer_gpu : " << (double) (end - start) <<std::endl;    
     
     return end_table;
 }
@@ -1985,21 +2069,35 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
     DBUG_ENTER("sub_select_gpuasync");
     enum_nested_loop_state rc = NESTED_LOOP_OK;
     join_tab->table->null_row = 0;
+    time_t start, end;
 
-    if (!join->gpu_complete) {
-        /* Stage 1 : Parameter Setting */
-        for (uint i = join->const_tables; i < join->primary_tables; i++) {
-            JOIN_TAB * const tab = join->join_tab + i;
-            TABLE * const table = tab->table;
-
-            Item * cond = tab->condition();
-            table->file->cond_push(cond);
-            table->file->ha_rnd_init(true);
-            table->file->ha_rnd_end();
-        }
-        join_tab->table->file->ha_make_key();
-        join->gpu_complete = true;
+//    if (!join->gpu_complete) {
+//        /* Stage 1 : Parameter Setting */
+//        for (uint i = join->const_tables; i < join->primary_tables; i++) {
+//            JOIN_TAB * const tab = join->join_tab + i;
+//            TABLE * const table = tab->table;
+//
+//            Item * cond = tab->condition();
+//            table->file->cond_push(cond);
+//            table->file->ha_rnd_init(true);
+//            table->file->ha_rnd_end();
+//        }
+//        join_tab->table->file->ha_make_key();
+//        join->gpu_complete = true;
+//    }
+    
+    JOIN_TAB * const tab = join->join_tab + join->const_tables;
+    TABLE * const table = tab->table;
+    Item *cond;
+    if(tab->pre_idx_push_cond != NULL) {
+      cond = tab->pre_idx_push_cond;
+    } else {
+      cond = tab->condition();
     }
+    table->file->cond_push(cond);
+    table->file->ha_rnd_init(true);
+    table->file->ha_rnd_end();
+    join_tab->table->file->ha_make_key();
     
     if (end_of_records) {
         join_tab->table->file->ha_release_key();
@@ -2013,10 +2111,35 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
         DBUG_RETURN(NESTED_LOOP_ERROR);
     }
 
-    join->return_tab = join_tab;
-    join_tab->not_null_compl = true;
-    join_tab->found_match = false;
+    if (join_tab->starts_weedout())
+    {
+      do_sj_reset(join_tab->flush_weedout_table);
+    }
 
+    join->return_tab= join_tab;
+    join_tab->not_null_compl= true;
+    join_tab->found_match= false;
+
+    if (join_tab->last_inner)
+    {
+      /* join_tab is the first inner table for an outer join operation. */
+
+      /* Set initial state of guard variables for this table.*/
+      join_tab->found=0;
+
+      /* Set first_unmatched for the last inner table of this group */
+      join_tab->last_inner->first_unmatched= join_tab;
+    }
+    if (join_tab->do_firstmatch() || join_tab->do_loosescan())
+    {
+      /*
+        join_tab is the first table of a LooseScan range, or has a "jump"
+        address in a FirstMatch range.
+        Reset the matching for this round of execution.
+      */
+      join_tab->match_tab->found_match= false;
+    }
+    
     bool first_read = true;
     bool end_table = false;
     bool end_record = false;
@@ -2056,6 +2179,7 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
         
         //std::cout << "[" << join_tab->table->alias << "] : evaluate join record in buffer : " << num_entry << std::endl;
         /* Nested Loop Join among Buffers */
+        start = time(NULL);
         while (num_entry > 0) {
             end_record = join_tab->gpu_buffer[0]->get_record();
             num_entry--;
@@ -2070,6 +2194,8 @@ enum_nested_loop_state sub_select_gpuasync(JOIN *join, JOIN_TAB *join_tab,
                 rc = evaluate_join_record(join, join_tab);
             }
         }
+        end = time(NULL);
+        //std::cout << "[" << join_tab->table->alias << "] : evaluate join record in buffer : " << (double) (end - start) << std::endl;
         end_record = true;
         
         if (end_table && !num_entry) {
@@ -2101,7 +2227,9 @@ bool allot_execution_buffer(JOIN *join, JOIN_TAB *join_tab, bool * end_file) {
     bool buf_full = false;
     bool end_table = false;
     int record_num = join_tab->table->file->ha_remain_value();
+    time_t start, end;
 
+    start = time(NULL);
     /* Put record to Buffer until buffer is full */
     while (!buf_full) {
       /* If there is no entry to fetch, then break */
@@ -2120,6 +2248,8 @@ bool allot_execution_buffer(JOIN *join, JOIN_TAB *join_tab, bool * end_file) {
         join_tab->table->record_temp[0]);
       }
     }
+    end = time(NULL);
+    //std::cout << "allot execution buffer : " << (double) (end - start) <<std::endl;  
     
     return end_table;
 }
@@ -2129,21 +2259,35 @@ enum_nested_loop_state sub_select_avxasync(JOIN *join, JOIN_TAB *join_tab,
     DBUG_ENTER("sub_select_avx_async");
     enum_nested_loop_state rc = NESTED_LOOP_OK;
     join_tab->table->null_row = 0;
-
-    if (!join->gpu_complete) {
-        /* Stage 1 : Parameter Setting */
-        for (uint i = join->const_tables; i < join->primary_tables; i++) {
-            JOIN_TAB * const tab = join->join_tab + i;
-            TABLE * const table = tab->table;
-
-            Item * cond = tab->condition();
-            table->file->cond_push(cond);
-            table->file->ha_rnd_init(true);
-            table->file->ha_rnd_end();
-        }
-        join_tab->table->file->ha_make_key();
-        join->gpu_complete = true;
+    time_t start, end;
+    
+//    if (!join->gpu_complete) {
+//        /* Stage 1 : Parameter Setting */
+//        for (uint i = join->const_tables; i < join->primary_tables; i++) {
+//            JOIN_TAB * const tab = join->join_tab + i;
+//            TABLE * const table = tab->table;
+//
+//            Item * cond = tab->condition();
+//            table->file->cond_push(cond);
+//            table->file->ha_rnd_init(true);
+//            table->file->ha_rnd_end();
+//        }
+//        join_tab->table->file->ha_make_key();
+//        join->gpu_complete = true;
+//    }
+    
+    JOIN_TAB * const tab = join->join_tab + join->const_tables;
+    TABLE * const table = tab->table;
+    Item *cond;
+    if(tab->pre_idx_push_cond != NULL) {
+      cond = tab->pre_idx_push_cond;
+    } else {
+      cond = tab->condition();
     }
+    table->file->cond_push(cond);
+    table->file->ha_rnd_init(true);
+    table->file->ha_rnd_end();
+    join_tab->table->file->ha_make_key();
     
     if (end_of_records) {
         join_tab->table->file->ha_release_key();
@@ -2157,9 +2301,34 @@ enum_nested_loop_state sub_select_avxasync(JOIN *join, JOIN_TAB *join_tab,
         DBUG_RETURN(NESTED_LOOP_ERROR);
     }
 
-    join->return_tab = join_tab;
-    join_tab->not_null_compl = true;
-    join_tab->found_match = false;
+    if (join_tab->starts_weedout())
+    {
+      do_sj_reset(join_tab->flush_weedout_table);
+    }
+
+    join->return_tab= join_tab;
+    join_tab->not_null_compl= true;
+    join_tab->found_match= false;
+
+    if (join_tab->last_inner)
+    {
+      /* join_tab is the first inner table for an outer join operation. */
+
+      /* Set initial state of guard variables for this table.*/
+      join_tab->found=0;
+
+      /* Set first_unmatched for the last inner table of this group */
+      join_tab->last_inner->first_unmatched= join_tab;
+    }
+    if (join_tab->do_firstmatch() || join_tab->do_loosescan())
+    {
+      /*
+        join_tab is the first table of a LooseScan range, or has a "jump"
+        address in a FirstMatch range.
+        Reset the matching for this round of execution.
+      */
+      join_tab->match_tab->found_match= false;
+    }
 
     bool first_read = true;
     bool end_table = false;
@@ -2201,6 +2370,7 @@ enum_nested_loop_state sub_select_avxasync(JOIN *join, JOIN_TAB *join_tab,
         //std::cout << "buff1 = " << join_tab->gpu_buffer[0]->get_entrynum()
              //   <<" buff2 = " << join_tab->gpu_buffer[1]->get_entrynum() << " and end_table = " << end_table << std::endl;
         
+        start = time(NULL);
         /* Nested Loop Join among Buffers */
         while (num_entry > 0) {
             //std::cout << " numentry = " << num_entry << " 22 = " << join_tab->gpu_buffer[1]->get_entrynum() << std::endl;
@@ -2217,10 +2387,14 @@ enum_nested_loop_state sub_select_avxasync(JOIN *join, JOIN_TAB *join_tab,
                 rc = evaluate_join_record(join, join_tab);
             }
         }
+        end = time(NULL);
+        //std::cout << "[" << join_tab->table->alias << "] : evaluate join record in buffer [avx] : " << (double) (end - start) << std::endl;
+        
         end_record = true;
         
         if (end_table && !num_entry) {
           join_tab->gpu_buffer[0]->reset_cache(true);
+          join_tab->gpu_buffer[1]->reset_cache(true);
           join_tab->buf_exists = false;
           break;
         } 
@@ -2246,20 +2420,34 @@ enum_nested_loop_state sub_select_gpudonard(JOIN *join, JOIN_TAB *join_tab,
     enum_nested_loop_state rc = NESTED_LOOP_OK;
     join_tab->table->null_row = 0;
 
-    if (!join->gpu_complete) {
-        /* Stage 1 : Parameter Setting */
-        for (uint i = join->const_tables; i < join->primary_tables; i++) {
-            JOIN_TAB * const tab = join->join_tab + i;
-            TABLE * const table = tab->table;
-
-            Item * cond = tab->condition();
-            table->file->cond_push(cond);
-            table->file->ha_rnd_init(true);
-            table->file->ha_rnd_end();
-        }
-        join_tab->table->file->ha_make_key();
-        join->gpu_complete = true;
+//    if (!join->gpu_complete) {
+//        /* Stage 1 : Parameter Setting */
+//        for (uint i = join->const_tables; i < join->primary_tables; i++) {
+//            JOIN_TAB * const tab = join->join_tab + i;
+//            TABLE * const table = tab->table;
+//
+//            Item * cond = tab->condition();
+//            table->file->cond_push(cond);
+//            table->file->ha_rnd_init(true);
+//            table->file->ha_rnd_end();
+//        }
+//        join_tab->table->file->ha_make_key();
+//        join->gpu_complete = true;
+//    }
+    JOIN_TAB * const tab = join->join_tab + join->const_tables;
+    TABLE * const table = tab->table;
+    //Item * cond = tab->condition();
+    Item *cond;
+    if(tab->pre_idx_push_cond != NULL) {
+      cond = tab->pre_idx_push_cond;
+    } else {
+      cond = tab->condition();
     }
+    table->file->cond_push(cond);
+    table->file->ha_rnd_init(true);
+    table->file->ha_rnd_end();
+    join_tab->table->file->ha_make_key();
+    
     
     if (end_of_records) {
         join_tab->table->file->ha_release_key();
@@ -2273,9 +2461,34 @@ enum_nested_loop_state sub_select_gpudonard(JOIN *join, JOIN_TAB *join_tab,
         DBUG_RETURN(NESTED_LOOP_ERROR);
     }
 
-    join->return_tab = join_tab;
-    join_tab->not_null_compl = true;
-    join_tab->found_match = false;
+    if (join_tab->starts_weedout())
+    {
+      do_sj_reset(join_tab->flush_weedout_table);
+    }
+
+    join->return_tab= join_tab;
+    join_tab->not_null_compl= true;
+    join_tab->found_match= false;
+
+    if (join_tab->last_inner)
+    {
+      /* join_tab is the first inner table for an outer join operation. */
+
+      /* Set initial state of guard variables for this table.*/
+      join_tab->found=0;
+
+      /* Set first_unmatched for the last inner table of this group */
+      join_tab->last_inner->first_unmatched= join_tab;
+    }
+    if (join_tab->do_firstmatch() || join_tab->do_loosescan())
+    {
+      /*
+        join_tab is the first table of a LooseScan range, or has a "jump"
+        address in a FirstMatch range.
+        Reset the matching for this round of execution.
+      */
+      join_tab->match_tab->found_match= false;
+    }
 
     bool first_read = true;
     bool end_table = false;

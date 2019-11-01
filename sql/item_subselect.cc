@@ -42,6 +42,7 @@
 #include "sql_join_buffer.h"                    // JOIN_CACHE
 #include "sql_optimizer.h"                      // JOIN
 #include "opt_explain_format.h"
+#include <iostream>
 
 Item_subselect::Item_subselect():
   Item_result_field(), value_assigned(0), traced_before(false),
@@ -2760,6 +2761,10 @@ bool subselect_single_select_engine::exec()
   char const *save_where= thd->where;
   SELECT_LEX *save_select= thd->lex->current_select;
   thd->lex->current_select= select_lex;
+  /* wonki */
+  if(accelerated_mode != OFF) { 
+    join->first_select = sub_select;
+  }
   if (!join->optimized)
   {
     SELECT_LEX_UNIT *unit= select_lex->master_unit();

@@ -23,7 +23,7 @@
   @defgroup Query_Optimizer  Query Optimizer
   @{
 */
-
+#include "merge_sort.h"
 #include "sql_priv.h"
 #include "sql_select.h"
 #include "sql_table.h"                          // primary_key_name
@@ -2437,11 +2437,11 @@ static bool setup_join_buffering(JOIN_TAB *tab, JOIN *join,
   const bool bka_on= join->thd->optimizer_switch_flag(OPTIMIZER_SWITCH_BKA);
   const uint tableno= tab - join->join_tab;
   const uint tab_sj_strategy= tab->get_sj_strategy();
-
+ 
   bool use_bka_unique= false;
   DBUG_EXECUTE_IF("test_bka_unique", use_bka_unique= true;);
   *icp_other_tables_ok= TRUE;
-
+ 
   if (!(bnl_on || bka_on) || tableno == join->const_tables)
   {
     DBUG_ASSERT(tab->use_join_cache == JOIN_CACHE::ALG_NONE);
@@ -2829,7 +2829,6 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
   Opt_trace_context * const trace= &join->thd->opt_trace;
   Opt_trace_object wrapper(trace);
   Opt_trace_array trace_refine_plan(trace, "refine_plan");
-  bool normal_table = false;
   
   if (setup_semijoin_dups_elimination(join, options, no_jbuf_after))
     DBUG_RETURN(TRUE); /* purecov: inspected */
@@ -2874,6 +2873,7 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
     case JT_SYSTEM: 
     case JT_CONST:
       /* Only happens with outer joins */
+      std::cout << "JT_CONST : " << tab->table->alias << std::endl;
       if (setup_join_buffering(tab, join, options, no_jbuf_after,
                                &icp_other_tables_ok))
         DBUG_RETURN(true);
@@ -2892,26 +2892,20 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
                                &icp_other_tables_ok))
         DBUG_RETURN(true);
 
-      {
-        std::cout << "jjjjjjjjjjjjjjjjjjjjjjjjjjjjjj ::: " << i << std::endl;
-        if (table->file == NULL) {
-          std::cout <<"ok" <<std::endl;
-          normal_table = true;
-        } else if (strcmp(table->file->table_type(), "MEMORY")) {
-          normal_table = true;
-        } 
-        
-        if ((accelerated_mode != ACCEL_MODE_OFF) && normal_table && (i == 0)) {
-          tab->gpu_buffer[0] = new GPU_BUFFER(join, tab, NULL);
-          tab->gpu_buffer[0]->init();
-          tab->gpu_buffer[1] = new GPU_BUFFER(join, tab, NULL);
-          tab->gpu_buffer[1]->init();
-        }
+      
+      if (accelerated_mode != ACCEL_MODE_OFF
+              && table->s->get_table_ref_type() != TABLE_REF_TMP_TABLE && strcmp(table->file->table_type(), "MEMORY")
+              && !(options & SELECT_DESCRIBE)) {
+        tab->gpu_buffer[0] = new GPU_BUFFER(join, tab, NULL);
+        tab->gpu_buffer[0]->init();
+        tab->gpu_buffer[1] = new GPU_BUFFER(join, tab, NULL);
+        tab->gpu_buffer[1]->init();
       }
-          
+      
       if (tab->use_join_cache != JOIN_CACHE::ALG_NONE) {     
-               
-        if ((accelerated_mode == ACCEL_MODE_AVX) && normal_table && i <= join->primary_tables) {
+         std::cout << "no join cache " << tab->table->alias << "  and type : " << tab->type<<std::endl;  
+        /* for fully accelerated */
+        /* if ((accelerated_mode == ACCEL_MODE_AVX) && normal_table && i <= join->primary_tables) {
     	  tab[-1].next_select=sub_select_avx;
         } else if (accelerated_mode == ACCEL_MODE_AVX_BLOCK && normal_table && i <= join->primary_tables) {
           tab[-1].next_select=sub_select_avxblock;
@@ -2923,10 +2917,10 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
           tab[-1].next_select=sub_select_gpuasync;
         } else if (accelerated_mode == ACCEL_MODE_GPU_DONARD && normal_table && i <= join->primary_tables) {
           tab[-1].next_select=sub_select_gpudonard;  
-        } else {
+        } else { */
           std::cout << " sub_select " << i <<std::endl;
           tab[-1].next_select=sub_select_op;
-        }
+        // }
       }
 
       /* These init changes read_record */
