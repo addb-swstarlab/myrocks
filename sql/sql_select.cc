@@ -952,7 +952,7 @@ bool JOIN::destroy()
     }
     if (tab->gpu_buffer[0]) {
        /* GPU Accelerator */
-       std::cout << "gpu buffer free" << std::endl;
+       //std::cout << "gpu buffer free" << std::endl;
        tab->gpu_buffer[0]->free();
        tab->gpu_buffer[0] = NULL;
     }
@@ -2834,7 +2834,7 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
     DBUG_RETURN(TRUE); /* purecov: inspected */
 
   std::cout << "const tables : " << join->const_tables << " table num : " 
-          << join->primary_tables << " tables : " << join->tables << std::endl;
+          << join->primary_tables << " tables : " << join->tables << " tmp_table : " << join->tmp_tables <<  std::endl;
   for (uint i= join->const_tables; i < join->tables; i++)
   {
     JOIN_TAB *const tab= join->join_tab+i;
@@ -2873,7 +2873,6 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
     case JT_SYSTEM: 
     case JT_CONST:
       /* Only happens with outer joins */
-      std::cout << "JT_CONST : " << tab->table->alias << std::endl;
       if (setup_join_buffering(tab, join, options, no_jbuf_after,
                                &icp_other_tables_ok))
         DBUG_RETURN(true);
@@ -2901,6 +2900,7 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
         tab->gpu_buffer[1] = new GPU_BUFFER(join, tab, NULL);
         tab->gpu_buffer[1]->init();
       }
+      if(tab->filesort) join->first_select = sub_select;
       
       if (tab->use_join_cache != JOIN_CACHE::ALG_NONE) {     
          std::cout << "no join cache " << tab->table->alias << "  and type : " << tab->type<<std::endl;  
@@ -2918,7 +2918,6 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
         } else if (accelerated_mode == ACCEL_MODE_GPU_DONARD && normal_table && i <= join->primary_tables) {
           tab[-1].next_select=sub_select_gpudonard;  
         } else { */
-          std::cout << " sub_select " << i <<std::endl;
           tab[-1].next_select=sub_select_op;
         // }
       }

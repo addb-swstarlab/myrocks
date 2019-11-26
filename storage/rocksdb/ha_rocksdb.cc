@@ -2534,7 +2534,7 @@ public:
                               rocksdb::PinnableSlice *const value) const = 0;
 
   virtual rocksdb::Status value_filter(rocksdb::ColumnFamilyHandle *const column_family,
-                              const rocksdb::SlicewithSchema &key,
+                              rocksdb::SlicewithSchema &key,
                               std::vector<rocksdb::PinnableSlice> &keys,
                               std::vector<rocksdb::PinnableSlice> &values, char** data_buf, uint64_t *num_entries, int join_idx) const { rocksdb::Status s; return s;};
                                                             
@@ -2913,7 +2913,7 @@ public:
   }
 
   rocksdb::Status value_filter(rocksdb::ColumnFamilyHandle *const column_family,
-                      const rocksdb::SlicewithSchema &key,
+                      rocksdb::SlicewithSchema &key,
                       std::vector<rocksdb::PinnableSlice> &keys,
                       std::vector<rocksdb::PinnableSlice> &values, char **data_buf, uint64_t *num_entries, int join_idx) const override {
     // clean PinnableSlice right begfore Get() for multiple gets per statement
@@ -12082,7 +12082,7 @@ bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_n
 
         *val_num = pvalues.size();
         
-       // std::cout << "avx block size = " << pvalues.size() << std::endl;
+        //std::cout << "avx block size = " << pvalues.size() << std::endl;
         
         if(s.IsTableEnd()) end_table = true;
 
@@ -12159,7 +12159,7 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uc
       *val_num = pvalues.size();
       num_entry_vec.back() = num_entries;
       if(accelerated_mode == ACCEL_MODE_GPU_DONARD) *val_num = num_entry_vec.size();
-      std::cout << " gpu value num = " << *val_num << std::endl;
+      //std::cout << " gpu value num = " << *val_num << std::endl;
         
       if(s.IsTableEnd()) end_table = true;
 
@@ -12173,6 +12173,10 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uc
         pvalues.back().Reset();
         gkeys.pop_back();
         pvalues.pop_back();
+        if(data_buffers.size() != 0) {
+          data_buffers.pop_back();
+          num_entry_vec.pop_back();
+        }
         *val_num = pvalues.size();        
       } else if ( accelerated_mode == ACCEL_MODE_GPU_DONARD ) {
         if(gkeys.size() != 0) {
@@ -12229,7 +12233,6 @@ void ha_rocksdb::generate_tbl_key() {
        
     if(item) {
         item->traverse_cond(&print_cond, (void *) &context, Item::PREFIX);
-        
     }
    
     std::string cond_str(make_cond_str(item));
@@ -12239,7 +12242,7 @@ void ha_rocksdb::generate_tbl_key() {
 //        calculate_parm(cond_str, &pivot, &idx, &cond);
 //    }
       
-    std::cout << "cal_after : pivot : " << context.pivot << " idx : " << context.idx << " condition : " << context.cond << std::endl;
+   // std::cout << "cal_after : pivot : " << context.pivot << " idx : " << context.idx << " condition : " << context.cond << std::endl;
     context.ToString();
     //gkeys.clear();
     //gvalues.clear();
@@ -12258,30 +12261,30 @@ void ha_rocksdb::generate_tbl_key() {
 
         if (field_dec->m_field_index == context.idx) {
             target = field_idx;
-            //std::cout << " target = " << target << std::endl;
+           // std::cout << " target = " << target << std::endl;
         }
 
         /* field type */
         type[field_idx] = typeToInt(field_dec->m_field_type);
         skip[field_idx] = it->m_skip;
         //std::cout << " type = " << typeToInt(field_dec->m_field_type) << std::endl; 
-        //std::cout << " skip = " << it->m_skip << std::endl;
+       // std::cout << " skip = " << it->m_skip << std::endl;
 
         /* field length */
         if (field_dec->uses_variable_len_encoding()) {
             my_core::Field_varstring * f =
                     reinterpret_cast<my_core::Field_varstring *>(table->field[field_dec->m_field_index]);
             length[field_idx] = f->length_bytes;
-            //std::cout << " length variable = " << f->length_bytes  << " real length " << f->field_length << std::endl;
+          //  std::cout << " length variable = " << f->length_bytes  << " real length " << f->field_length << std::endl;
         } else {
             length[field_idx] = field_dec->m_pack_length_in_rec;
-           // std::cout << " length non variable = " << field_dec->m_pack_length_in_rec << std::endl;
+         //   std::cout << " length non variable = " << field_dec->m_pack_length_in_rec << std::endl;
         }
 
         field_idx++;
     }
 
-    std::cout <<" table key : " << rocksdb::Slice((const char *)m_pk_packed_tuple, 4).ToString(1) << std::endl;
+   // std::cout <<" table key : " << rocksdb::Slice((const char *)m_pk_packed_tuple, 4).ToString(1) << std::endl;
     accelerator::FilterContext ctx { condToOp(context.cond), context.pivot, context.comp_field, context.str_num, {0,}, {0,} };
     memcpy(&ctx.cpivot, &context.cpivot, sizeof(char) * 32 * 10 );
     memcpy(&ctx.pivots, &context.pivots, sizeof(long long) * 10 );

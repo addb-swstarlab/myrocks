@@ -3513,7 +3513,7 @@ int GPU_BUFFER::init()
 {
   DBUG_ENTER("GPU_BUFFER::init");
 
-  std::cout << "GPU BUFFER init "<< std::endl;
+  //std::cout << "GPU BUFFER init "<< std::endl;
   calc_record_fields();
 
   if (alloc_fields(0))
@@ -3550,7 +3550,8 @@ bool GPU_BUFFER::alloc_buffer()
   } else if (accelerated_mode == ACCEL_MODE_GPU) {
 //    buff_size = 3221225472L; 
 //    buff_size = 1073741824L;
-      buff_size = 1 << 27;
+    //  buff_size = 1 << 27;
+    buff_size = 256 * 1024;
     //buff_size = gpu_buff_size;
   } else if (accelerated_mode == ACCEL_MODE_AVX_ASYNC) {
     //buff_size = gpu_buff_size;
@@ -3565,7 +3566,7 @@ bool GPU_BUFFER::alloc_buffer()
     //buff_size = 3221225472L;
   }
 
-  std::cout << "GPU buff_size is " << buff_size << std::endl;
+  //std::cout << "GPU buff_size is " << buff_size << std::endl;
   buff= (uchar*) my_malloc(buff_size, MYF(0));
   return buff == NULL;
 }
@@ -3666,7 +3667,7 @@ uint GPU_BUFFER::write_record_data_async(uchar * link, bool *is_full)
     cp+= prev_cache->get_size_of_rec_offset();
     prev_cache->store_rec_ref(cp, link);
   } 
-
+  
   curr_rec_pos= cp;
   
   /* If the there is a match flag set its value to 0 */
@@ -3681,7 +3682,7 @@ uint GPU_BUFFER::write_record_data_async(uchar * link, bool *is_full)
     memcpy(cp, copy->str, copy->length);
     cp+= copy->length;
   } 
-  
+
   /* Now put the values of the remaining fields as soon as they are not nulls */ 
   copy_end= field_temp+fields;
   for ( ; copy < copy_end; copy++)
@@ -3756,7 +3757,7 @@ uint GPU_BUFFER::write_record_data_async(uchar * link, bool *is_full)
       }
     }
   }
-  
+
   /* Add the offsets of the fields that are referenced from other caches */ 
   if (referenced_fields)
   {
