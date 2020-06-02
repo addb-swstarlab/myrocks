@@ -2926,9 +2926,10 @@ public:
  virtual int ha_make_key() { return 0; }
  virtual int ha_release_key() { return 0; }
  virtual int ha_bulk_load_avx(int record_seq, uchar* record) { return 0; };
- virtual bool ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_num, uchar* record) { return false; };
- virtual int ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uchar* record) { return 0; };
+ virtual bool ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_num, double* pushdown_evaluate, double* data_transfer, uchar* record) { return false; };
+ virtual int ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, double* pushdown_evaluate, double* data_transfer, uchar* record) { return 0; };
  virtual int ha_remain_value() { return 0; };
+ virtual int ha_clear_queue() { return 0; };
 
  /**
    Push down an index condition to the handler.

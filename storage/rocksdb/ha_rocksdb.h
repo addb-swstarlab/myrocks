@@ -677,9 +677,10 @@ class ha_rocksdb : public my_core::handler {
   int ha_make_key() override;
   int ha_release_key() override;
   int ha_bulk_load_avx(int record_seq, uchar * buf) override;
-  bool ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_num, uchar * buf) override;
-  int ha_bulk_load_gpu(int record_seq, int join_idx, int * value_num, uchar * buf) override;
+  bool ha_bulk_load_avxblock(int record_seq, int join_idx, int* val_num, double* pushdown_evaluate, double* data_transfer, uchar* buf) override;
+  int ha_bulk_load_gpu(int record_seq, int join_idx, int * value_num, double* pushdown_evaluate, double* data_transfer, uchar * buf) override;
   int ha_remain_value() override;
+  int ha_clear_queue() override;
   
   void generate_tbl_key();
   void split_from_string(std::string delimiter, std::string target, std::vector<std::string> &ret);

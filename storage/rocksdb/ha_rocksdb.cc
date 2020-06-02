@@ -2536,7 +2536,8 @@ public:
   virtual rocksdb::Status value_filter(rocksdb::ColumnFamilyHandle *const column_family,
                               rocksdb::SlicewithSchema &key,
                               std::vector<rocksdb::PinnableSlice> &keys,
-                              std::vector<rocksdb::PinnableSlice> &values, char** data_buf, uint64_t *num_entries, int join_idx) const { rocksdb::Status s; return s;};
+                              std::vector<rocksdb::PinnableSlice> &values, char** data_buf, uint64_t *num_entries, int join_idx,
+                              double* pushdown_evaluate, double* data_transfer) const { rocksdb::Status s; return s;};
                                                             
   virtual rocksdb::Status async_filter(rocksdb::ColumnFamilyHandle *const column_family,
                               rocksdb::GPUManager *gpu_manager_) const { rocksdb::Status s; return s;};
@@ -2915,7 +2916,7 @@ public:
   rocksdb::Status value_filter(rocksdb::ColumnFamilyHandle *const column_family,
                       rocksdb::SlicewithSchema &key,
                       std::vector<rocksdb::PinnableSlice> &keys,
-                      std::vector<rocksdb::PinnableSlice> &values, char **data_buf, uint64_t *num_entries, int join_idx) const override {
+                      std::vector<rocksdb::PinnableSlice> &values, char** data_buf, uint64_t* num_entries, int join_idx, double* pushdown_evaluate, double* data_transfer) const override {
     // clean PinnableSlice right begfore Get() for multiple gets per statement
     // the resources after the last Get in a statement are cleared in
     // handler::reset call
@@ -2932,7 +2933,7 @@ public:
     } else if (accelerated_mode == ACCEL_MODE_GPU_DONARD) {
       vf_read_opts.value_filter_mode = accelerator::ValueFilterMode::DONARD;
     }
-    return m_rocksdb_tx->ValueFilter(vf_read_opts, column_family, key, keys, values, data_buf, num_entries, join_idx);
+    return m_rocksdb_tx->ValueFilter(vf_read_opts, column_family, key, keys, values, data_buf, num_entries, join_idx, pushdown_evaluate, data_transfer);
   }
   
   rocksdb::Status async_filter(rocksdb::ColumnFamilyHandle *const column_family,
@@ -6369,6 +6370,8 @@ int ha_rocksdb::convert_record_from_storage_format_opt(
   data_ptr += 2;
   
   m_last_rowkey_temp.copy(data_ptr, key_size, &my_charset_bin);
+//  for(uint i = 0; i < key_size; i++)
+//    std::cout << "data = " << data_ptr[i] << std::endl;
   data_ptr += key_size;
 
   Rdb_string_reader reader(data_ptr, value_size);
@@ -6383,6 +6386,7 @@ int ha_rocksdb::convert_record_from_storage_format_opt(
   const rocksdb::Slice rowkey_slice(m_last_rowkey_temp.ptr(),
                                     m_last_rowkey_temp.length());
    
+  //std::cout << "row key = " << rowkey_slice.ToString(1) << std::endl;
   const char *unpack_info = nullptr;
   uint16 unpack_info_len = 0;
   rocksdb::Slice unpack_slice;
@@ -12049,7 +12053,7 @@ int ha_rocksdb::ha_bulk_load_avx(int record_seq, uchar* buf) {
         gkeys.clear();
         avxValues.clear();
         rocksdb::Status s = tx->value_filter(
-            m_pk_descr->get_cf(), *table_key, gkeys, avxValues, &data_buf, &num_entries, join_idx);
+            m_pk_descr->get_cf(), *table_key, gkeys, avxValues, &data_buf, &num_entries, join_idx, nullptr, nullptr);
 
         //std::cout << "avx size = " << avxValues.size() << std::endl;
         rc = avxValues.size();
@@ -12064,7 +12068,7 @@ int ha_rocksdb::ha_bulk_load_avx(int record_seq, uchar* buf) {
 
 /* "ha_bulk_load function loads chunks of value and transform to record format in myrocks by unit of record */
 
-bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_num, uchar* buf) {
+bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int* val_num, double* pushdown_evaluate, double* data_transfer, uchar* buf) {
     DBUG_ENTER_FUNC();
     bool end_table = false;
 
@@ -12078,7 +12082,7 @@ bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_n
         DBUG_ASSERT(tx != nullptr);
         
         rocksdb::Status s = tx->value_filter(
-            m_pk_descr->get_cf(), *table_key, gkeys, pvalues, &data_buf, &num_entries, join_idx);
+            m_pk_descr->get_cf(), *table_key, gkeys, pvalues, &data_buf, &num_entries, join_idx, pushdown_evaluate, data_transfer);
 
         *val_num = pvalues.size();
         
@@ -12139,7 +12143,7 @@ bool ha_rocksdb::ha_bulk_load_avxblock(int record_seq, int join_idx, int * val_n
 //    DBUG_RETURN(rc);
 //}
 
-int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uchar * buf) {
+int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, double* pushdown_evaluate, double* data_transfer, uchar * buf) {
     DBUG_ENTER_FUNC();
     bool end_table = false;
 
@@ -12154,7 +12158,7 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uc
       data_buffers.push_back(data_ptr);
       num_entry_vec.push_back(0);
       rocksdb::Status s = tx->value_filter(
-          m_pk_descr->get_cf(), *table_key, gkeys, pvalues, &(data_buffers.back()), &num_entries, join_idx);
+          m_pk_descr->get_cf(), *table_key, gkeys, pvalues, &(data_buffers.back()), &num_entries, join_idx, pushdown_evaluate, data_transfer);
       
       *val_num = pvalues.size();
       num_entry_vec.back() = num_entries;
@@ -12179,14 +12183,14 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uc
         }
         *val_num = pvalues.size();        
       } else if ( accelerated_mode == ACCEL_MODE_GPU_DONARD ) {
-        if(gkeys.size() != 0) {
-          rc = convert_record_from_storage_format_async(&(gkeys.back()),
-                &(pvalues.back()), buf);
-          gkeys.back().Reset();
-          pvalues.back().Reset();
-          gkeys.pop_back();
-          pvalues.pop_back();
-        }
+//        if(gkeys.size() != 0) {
+//          rc = convert_record_from_storage_format_async(&(gkeys.back()),
+//                &(pvalues.back()), buf);
+//          gkeys.back().Reset();
+//          pvalues.back().Reset();
+//          gkeys.pop_back();
+//          pvalues.pop_back();
+//        }
         
         rc = convert_record_from_storage_format_opt(data_buffers.back() + cur_ptr, &cur_ptr, buf);
         num_entry_vec.back() -= 1;
@@ -12217,6 +12221,12 @@ int ha_rocksdb::ha_bulk_load_gpu(int record_seq, int join_idx, int * val_num, uc
 int ha_rocksdb::ha_remain_value() {
   if ( accelerated_mode == ACCEL_MODE_GPU_DONARD ) return num_entry_vec.size();
   return pvalues.size();
+}
+
+int ha_rocksdb::ha_clear_queue() {
+  gkeys.clear();
+  pvalues.clear();
+  return 0;
 }
 
 void ha_rocksdb::generate_tbl_key() {
@@ -12294,6 +12304,7 @@ void ha_rocksdb::generate_tbl_key() {
 
 int ha_rocksdb::ha_make_key() {
     generate_tbl_key();
+    std::cout << "TABLE KEY : " << table_key->ToString(1) << std::endl;
     return 0;
 }
 

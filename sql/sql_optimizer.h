@@ -401,6 +401,14 @@ public:
   /* GPU Accelerator */
   bool gpu_complete;
   void * gpu_handler;
+  
+  double total_read_time;
+  double total_eval_time;
+  double first_tab_read_time;
+  double first_tab_eval_time;
+  double data_transfer;
+  double pushdown_evaluate;
+  double total_while_time;
 
   JOIN(THD *thd_arg, List<Item> &fields_arg, ulonglong select_options_arg,
        select_result *result_arg)
@@ -488,6 +496,14 @@ public:
     group_sent= 0;
     gpu_complete = false;
     gpu_handler = nullptr;
+    
+    total_read_time = 0;
+    total_eval_time = 0;
+    first_tab_read_time = 0;
+    first_tab_eval_time = 0;
+    data_transfer = 0;
+    pushdown_evaluate = 0;
+    total_while_time = 0;
   }
 
   /// True if plan is const, ie it will return zero or one rows.
